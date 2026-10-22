@@ -171,11 +171,50 @@ export const registerApi = async (data: {
   return resData;
 };
 
-export const initiateGoogleLogin = () => {
-  const targetUrl = `${API_BASE_URL}/auth/google`;
+export const verifyGoogleIdTokenApi = async (idToken: string) => {
+  const response = await fetch(`${API_BASE_URL}/auth/google/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ id_token: idToken }),
+  });
 
-  // On local mobile development (localhost), open a focused popup so the user stays on their mobile app
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+  const resData = await safeParseJson(response);
+
+  if (!response.ok || !resData?.success) {
+    const errorDetail = extractErrorMessage(resData, 'Google authentication failed');
+    throw new Error(errorDetail);
+  }
+
+  if (resData.access_token) {
+    localStorage.setItem('auth_token', resData.access_token);
+    localStorage.setItem('access_token', resData.access_token);
+  }
+
+  return resData;
+};
+
+export const initiateGoogleLogin = () => {
+  if (typeof window === 'undefined') return;
+
+  // 1. Native mobile bridge detection (Android WebView JavaScriptInterface or Capacitor wrapper)
+  if ((window as any).AndroidGoogleAuth?.signIn) {
+    try {
+      (window as any).AndroidGoogleAuth.signIn();
+      return;
+    } catch (e) {
+      console.warn('Native AndroidGoogleAuth trigger failed, falling back to browser flow', e);
+    }
+  }
+
+  const currentOrigin = window.location.origin;
+  const targetUrl = `${API_BASE_URL}/auth/google?return_url=${encodeURIComponent(currentOrigin)}`;
+
+  // On local desktop development only, open a focused popup if not on mobile/touch screen
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if (!isTouchDevice && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     const width = 500;
     const height = 650;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -192,7 +231,7 @@ export const initiateGoogleLogin = () => {
     }
   }
 
-  // Standard full-page redirect for production
+  // Standard full-page redirect for mobile and production web
   window.location.href = targetUrl;
 };
 

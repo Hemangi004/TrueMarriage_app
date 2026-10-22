@@ -53,14 +53,23 @@ def log_google_oauth_status():
     print("==================================================")
 
 
-def generate_oauth_state() -> str:
+import base64
+
+
+def generate_oauth_state(return_origin: Optional[str] = None) -> str:
     """
-    Generates a cryptographically signed state token (random_nonce.timestamp.signature).
-    Enables server verification even if client browser drops cookie across cross-origin redirect.
+    Generates a cryptographically signed state token (nonce.timestamp[.b64_origin].signature).
+    Supports embedding validated return_origin safely so mobile/web users
+    are redirected back to their exact origin (e.g. localhost, LAN IP, or production).
     """
     nonce = secrets.token_urlsafe(24)
     ts = str(int(time.time()))
-    payload = f"{nonce}.{ts}"
+    if return_origin and return_origin.strip():
+        b64_origin = base64.urlsafe_b64encode(return_origin.strip().encode("utf-8")).decode("utf-8").rstrip("=")
+        payload = f"{nonce}.{ts}.{b64_origin}"
+    else:
+        payload = f"{nonce}.{ts}"
+
     sig = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
     return f"{payload}.{sig}"
 
@@ -68,12 +77,19 @@ def generate_oauth_state() -> str:
 def verify_oauth_state(state: str, max_age_seconds: int = 600) -> bool:
     """
     Verifies that the state token was signed by this server and is not expired (default 10 mins).
+    Compatible with both standard (nonce.ts.sig) and origin-carrying (nonce.ts.b64_origin.sig) formats.
     """
-    if not state or state.count(".") != 2:
+    if not state or state.count(".") not in (2, 3):
         return False
     try:
-        nonce, ts_str, sig = state.split(".", 2)
-        payload = f"{nonce}.{ts_str}"
+        parts = state.split(".")
+        if len(parts) == 3:
+            nonce, ts_str, sig = parts
+            payload = f"{nonce}.{ts_str}"
+        else:
+            nonce, ts_str, b64_origin, sig = parts
+            payload = f"{nonce}.{ts_str}.{b64_origin}"
+
         expected_sig = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
         if not hmac.compare_digest(sig, expected_sig):
             return False
@@ -84,6 +100,90 @@ def verify_oauth_state(state: str, max_age_seconds: int = 600) -> bool:
         return True
     except Exception:
         return False
+
+
+def extract_return_origin_from_state(state: str) -> Optional[str]:
+    """
+    Safely extracts the return origin from a verified 4-part state token.
+    Returns None if state is malformed or does not contain an encoded origin.
+    """
+    if not state or state.count(".") != 3:
+        return None
+    try:
+        if not verify_oauth_state(state):
+            return None
+        _, _, b64_origin, _ = state.split(".")
+        padding = 4 - (len(b64_origin) % 4)
+        if padding != 4:
+            b64_origin += "=" * padding
+        decoded = base64.urlsafe_b64decode(b64_origin.encode("utf-8")).decode("utf-8").strip()
+        return decoded if decoded else None
+    except Exception:
+        return None
+
+
+def verify_google_id_token(id_token_str: str) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+    """
+    Cryptographically verifies a Google ID token from mobile (Android/iOS) or web Google Sign-In SDKs.
+    Validates token signature against Google's public JWKS certificates, expiration, issuer, and audience.
+    Returns (success, claims_dict, error_message).
+    """
+    if not id_token_str or not str(id_token_str).strip():
+        return False, None, "Google ID token is required."
+
+    cleaned_token = str(id_token_str).strip()
+
+    allowed_audiences = []
+    if settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_ID.strip():
+        allowed_audiences.append(settings.GOOGLE_CLIENT_ID.strip())
+    if getattr(settings, "GOOGLE_ANDROID_CLIENT_ID", None) and settings.GOOGLE_ANDROID_CLIENT_ID.strip():
+        allowed_audiences.append(settings.GOOGLE_ANDROID_CLIENT_ID.strip())
+
+    if not allowed_audiences:
+        return False, None, "Google OAuth is not configured on the backend."
+
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        request = google_requests.Request()
+
+        # When a single audience is configured, pass it to verify_oauth2_token.
+        # When multiple audiences exist, verify the token and ensure aud/azp matches allowed_audiences.
+        verify_aud = allowed_audiences[0] if len(allowed_audiences) == 1 else None
+        claims = google_id_token.verify_oauth2_token(
+            cleaned_token,
+            request,
+            audience=verify_aud
+        )
+
+        if len(allowed_audiences) > 1:
+            token_aud = claims.get("aud")
+            token_azp = claims.get("azp")
+            if token_aud not in allowed_audiences and token_azp not in allowed_audiences:
+                return False, None, f"Token audience '{token_aud}' is not authorized."
+
+        # Validate issuer
+        iss = claims.get("iss")
+        if iss not in ("accounts.google.com", "https://accounts.google.com"):
+            return False, None, f"Invalid token issuer: {iss}"
+
+        # Validate email & email_verified
+        email = claims.get("email")
+        if not email:
+            return False, None, "Google ID token did not contain an email address."
+
+        if not claims.get("email_verified", False):
+            return False, None, "Google account email is not verified."
+
+        return True, claims, None
+    except ValueError as ve:
+        logger.warning(f"Google ID token verification failed: {ve}")
+        return False, None, f"Invalid Google token: {str(ve)}"
+    except Exception as e:
+        logger.error(f"Unexpected error during Google ID token verification: {e}")
+        return False, None, f"Failed to verify Google token: {str(e)}"
+
 
 
 def get_google_auth_url(state: str) -> str:

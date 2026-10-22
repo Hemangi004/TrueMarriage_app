@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
-import { loginApi, logoutApi, getCurrentUserApi } from '../services/apiService';
+import { loginApi, logoutApi, getCurrentUserApi, verifyGoogleIdTokenApi } from '../services/apiService';
 
 export interface User {
   id: string;
@@ -41,6 +41,7 @@ interface AuthContextType {
   postLoginAction: (() => void) | null;
   setPostLoginAction: (action: (() => void) | null) => void;
   executePostLoginAction: (customUser?: User | null) => boolean;
+  loginWithGoogleIdToken?: (idToken: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -242,13 +243,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('access_token', e.data.token);
         await refreshUser();
         executePostLoginAction();
+      } else if (e.data && e.data.type === 'tm:google_id_token' && e.data.id_token) {
+        try {
+          await loginWithGoogleIdToken(e.data.id_token);
+        } catch (err) {
+          console.error('Failed to authenticate Google ID token from window message:', err);
+        }
       }
     };
     window.addEventListener('message', handleOAuthMessage);
 
+    // Native mobile app bridge listener (for Android WebView or Capacitor native plugins)
+    const handleGoogleIdTokenEvent = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ id_token: string }>;
+      if (customEvent?.detail?.id_token) {
+        try {
+          await loginWithGoogleIdToken(customEvent.detail.id_token);
+        } catch (err) {
+          console.error('Failed to authenticate Google ID token from custom event:', err);
+        }
+      }
+    };
+    window.addEventListener('tm:google-id-token', handleGoogleIdTokenEvent);
+
+    (window as any).handleAndroidGoogleIdToken = (idToken: string) => {
+      loginWithGoogleIdToken(idToken).catch((err) => {
+        showAuthToast(err?.message || 'Google sign-in failed');
+      });
+    };
+    (window as any).handleAndroidGoogleError = (errorMsg: string) => {
+      showAuthToast(errorMsg || 'Google sign-in was cancelled');
+    };
+
     return () => {
       window.removeEventListener('tm:open-login', handleOpenLogin);
       window.removeEventListener('message', handleOAuthMessage);
+      window.removeEventListener('tm:google-id-token', handleGoogleIdTokenEvent);
+      delete (window as any).handleAndroidGoogleIdToken;
+      delete (window as any).handleAndroidGoogleError;
     };
   }, []);
 
@@ -335,6 +367,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithGoogleIdToken = async (idToken: string) => {
+    try {
+      setLoading(true);
+      const res = await verifyGoogleIdTokenApi(idToken);
+      if (res?.access_token) {
+        localStorage.setItem('auth_token', res.access_token);
+        localStorage.setItem('access_token', res.access_token);
+      }
+      await refreshUser();
+      closeAuthModals();
+      executePostLoginAction(res?.user);
+      return res;
+    } catch (err: any) {
+      console.error('Google ID token verification failed:', err);
+      showAuthToast(err?.message || 'Google sign-in failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -344,6 +397,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isLoading: loading,
         login,
+        loginWithGoogleIdToken,
         logout,
         refreshAuth,
         refreshUser,
