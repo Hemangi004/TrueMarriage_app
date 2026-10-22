@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /biodata-maker
+Allow: /templates
+Allow: /discover
+Allow: /discovery
+Allow: /profile/
+Allow: /@
+Disallow: /admin
+Disallow: /admin/
+Disallow: /studio
+Disallow: /wizard
+Disallow: /interactions
+
+Sitemap: /sitemap.xml

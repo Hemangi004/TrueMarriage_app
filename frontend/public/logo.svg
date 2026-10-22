@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" width="100%" height="100%">
+  <defs>
+    <!-- Red-Orange Gradient for Left 't' Section -->
+    <linearGradient id="tmOrangeRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C52818" />
+      <stop offset="45%" stop-color="#E85D04" />
+      <stop offset="100%" stop-color="#F48C06" />
+    </linearGradient>
+
+    <!-- Gold / Champagne Gradient for Right 'm' Section -->
+    <linearGradient id="tmGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F2D086" />
+      <stop offset="40%" stop-color="#D9A74A" />
+      <stop offset="100%" stop-color="#A6732E" />
+    </linearGradient>
+
+    <!-- 4-point Star Shimmer Gradient -->
+    <linearGradient id="tmStarGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE3A8" />
+      <stop offset="100%" stop-color="#C68E31" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter for Subtle Luxury Depth -->
+    <filter id="tmGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.08" />
+    </filter>
+  </defs>
+
+  <!-- ── ICON MONOGRAM GROUP ── -->
+  <g transform="translate(40, 15)" filter="url(#tmGlow)">
+    <!-- 4-Point Shimmer Star above the 'm' -->
+    <path d="M 235 38 Q 235 20 238 8 Q 241 20 241 38 Q 241 56 238 68 Q 235 56 235 38 Z" fill="url(#tmStarGold)" />
+    <path d="M 223 38 Q 235 38 238 35 Q 241 38 253 38 Q 241 38 238 41 Q 235 38 223 38 Z" fill="url(#tmStarGold)" />
+
+    <!-- Left 't' Shape (with heart inner contour) -->
+    <path d="
+      M 75 35
+      L 98 35
+      L 98 62
+      L 60 62
+      L 60 84
+      L 98 84
+      L 98 128
+      C 98 152 118 168 145 168
+      L 165 168
+      C 152 154 142 138 140 120
+      C 138 102 146 88 158 78
+      C 142 66 122 66 122 66
+      L 122 35
+      Z
+    " fill="url(#tmOrangeRed)" />
+
+    <!-- Right 'm/a' Arch Shape (with heart inner contour) -->
+    <path d="
+      M 168 168
+      C 188 152 210 128 210 102
+      C 210 82 195 65 172 65
+      C 172 65 205 65 238 82
+      C 265 98 275 125 275 168
+      L 250 168
+      C 250 135 240 115 220 105
+      C 200 95 180 110 178 135
+      C 175 152 170 162 168 168
+      Z
+    " fill="url(#tmGold)" />
+
+    <!-- Heart Shape at Center Intersection -->
+    <path d="
+      M 166.5 160
+      C 162 152 135 128 135 106
+      C 135 92 146 80 160 80
+      C 164 80 167 82 166.5 86
+      C 166 82 169 80 173 80
+      C 187 80 198 92 198 106
+      C 198 128 171 152 166.5 160
+      Z
+    " fill="#FFFFFF" />
+  </g>
+
+  <!-- ── TYPOGRAPHY ── -->
+  <text x="200" y="235" 
+        font-family="'Playfair Display', 'Poppins', 'Georgia', serif" 
+        font-size="36" 
+        font-weight="900" 
+        letter-spacing="4" 
+        text-anchor="middle" 
+        fill="#875629">
+    TRUE MARRIAGE
+  </text>
+
+  <text x="200" y="265" 
+        font-family="'Poppins', sans-serif" 
+        font-size="11.5" 
+        font-weight="700" 
+        letter-spacing="2.8" 
+        text-anchor="middle" 
+        fill="#A67C52">
+    REAL PEOPLE. REAL STORIES. REAL TOGETHER.
+  </text>
+</svg>

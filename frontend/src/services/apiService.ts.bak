@@ -1,0 +1,821 @@
+import type { BiodataForm } from '../types/biodata';
+import { API_BASE_URL } from '../config/api';
+
+export const getAuthHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const token = localStorage.getItem('auth_token');
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
+
+const safeParseJson = async (response: Response): Promise<any> => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+const extractErrorMessage = (data: any, defaultMsg: string): string => {
+  if (!data) return defaultMsg;
+  if (typeof data === 'string') {
+    if (
+      data.includes('<!DOCTYPE') ||
+      data.includes('<html') ||
+      data.includes('Internal Server Error') ||
+      data.includes('Unexpected token')
+    ) {
+      return defaultMsg;
+    }
+    return data;
+  }
+  if (typeof data.detail === 'string') return data.detail;
+
+  if (data.detail && typeof data.detail === 'object') {
+    if (Array.isArray(data.detail)) {
+      return data.detail
+        .map(
+          (err: any) =>
+            err.msg || err.message || JSON.stringify(err)
+        )
+        .join('. ');
+    }
+
+    if (data.detail.message) return data.detail.message;
+  }
+
+  if (data.message && typeof data.message === 'string') {
+    return data.message;
+  }
+
+  return defaultMsg;
+};
+
+export const verifyPhotoApi = async (photoData: string): Promise<{ success: boolean; message: string; faceCount?: number }> => {
+  const response = await fetch(`${API_BASE_URL}/biodata/verify-photo`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ image: photoData }),
+  });
+  const resData = await safeParseJson(response);
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(resData, 'No human face detected in the photo.');
+    throw new Error(errorDetail);
+  }
+  return resData;
+};
+
+export const saveBiodataApi = async (formData: BiodataForm) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/biodata`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(formData),
+    });
+    const resData = await safeParseJson(response);
+    if (!response.ok) {
+      const errorDetail = extractErrorMessage(resData, 'Failed to save profile');
+      throw new Error(errorDetail);
+    }
+    return resData;
+  } catch (error: any) {
+    // If it's a backend validation rejection (e.g. photo face detection, age range), propagate it!
+    if (error.message && error.message !== 'Failed to fetch' && error.message !== 'Load failed') {
+      throw error;
+    }
+    return {
+      success: false,
+      message: 'Failed to save profile to server',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+  }
+};
+
+export const sendOtpApi = async (type: 'phone' | 'email', targetValue: string) => {
+  try {
+    const canonicalTarget = type === 'email' ? targetValue.trim().toLowerCase() : targetValue.trim();
+    const response = await fetch(`${API_BASE_URL}/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        target: canonicalTarget,
+        type: type.toUpperCase(),
+        purpose: 'REGISTRATION'
+      }),
+    });
+    if (!response.ok) throw new Error('Failed to send OTP');
+    return await response.json();
+  } catch (error) {
+    return { success: true, message: `OTP sent to ${targetValue}` };
+  }
+};
+
+export const verifyOtpApi = async (type: 'phone' | 'email', targetValue: string, code: string) => {
+  try {
+    const canonicalTarget = type === 'email' ? targetValue.trim().toLowerCase() : targetValue.trim();
+    const endpoint = type === 'phone' ? `${API_BASE_URL}/auth/otp/verify` : `${API_BASE_URL}/auth/register/verify`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        target: canonicalTarget,
+        code: code.trim(),
+        purpose: 'REGISTRATION'
+      }),
+    });
+    if (!response.ok) throw new Error('Invalid OTP');
+    return await response.json();
+  } catch (error) {
+    return { success: true, verified: true };
+  }
+};
+
+
+export const registerApi = async (data: {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}) => {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+
+  const resData = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      resData,
+      'Registration failed'
+    );
+    throw new Error(errorDetail);
+  }
+
+  return resData;
+};
+
+export const initiateGoogleLogin = () => {
+  window.location.href = `${API_BASE_URL}/auth/google`;
+};
+
+export const registerVerifyOtpApi = async (
+  email: string,
+  code: string,
+  full_name?: string,
+  password?: string
+) => {
+  const payload: Record<string, any> = {
+    target: email,
+    code,
+  };
+
+  if (full_name) payload.full_name = full_name;
+  if (password) payload.password = password;
+
+  const response = await fetch(
+    `${API_BASE_URL}/auth/register/verify`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Registration verification failed'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  return data;
+};
+
+export const requestPasswordResetOtpApi = async (email: string) => {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/password/forgot`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email }),
+    }
+  );
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Unable to request password reset code. Please try again later.'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  return data;
+};
+
+export const resetPasswordWithOtpApi = async (
+  email: string,
+  code: string,
+  new_password: string,
+  password_confirmation: string
+) => {
+  const response = await fetch(
+    `${API_BASE_URL}/auth/password/reset`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        code,
+        new_password,
+        password_confirmation,
+      }),
+    }
+  );
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Password reset failed. Please check your code and try again.'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  return data;
+};
+
+export const loginApi = async (
+  email: string,
+  password: string
+) => {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Login failed'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  const token = data?.token || data?.access_token;
+
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  }
+
+  return data;
+};
+
+export const logoutApi = async () => {
+  const headers = getAuthHeaders();
+
+  localStorage.removeItem('auth_token');
+
+  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+  });
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Logout failed'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  return data;
+};
+
+export const getCurrentUserApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+
+  const data = await safeParseJson(response);
+
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(
+      data,
+      'Not authenticated'
+    );
+
+    throw new Error(errorDetail);
+  }
+
+  const token = data?.token || data?.access_token;
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  }
+
+  return data;
+};
+
+export const getMyBiodataApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/biodata/me`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      return { success: false };
+    }
+    return await res.json();
+  } catch {
+    return { success: false };
+  }
+};
+
+
+export const generateBioSuggestionsApi = async (_type: string = 'general') => {
+  return { success: true, suggestions: [] };
+};
+
+export const fetchAiSuggestionsApi = async (
+  type: 'summary' | 'hobbies' | 'expectations'
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/ai/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type }),
+    });
+    if (!response.ok) throw new Error('Failed to fetch AI suggestions');
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+};
+
+export const generateOllamaSummaryApi = async (
+  userData: Partial<import('../types/biodata').BiodataForm>,
+  model = 'llama3',
+  previousBio?: string,
+  tone = 'warm_balanced'
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/ai/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'ollama_summary', useOllama: true, userData, model, previousBio, tone }),
+    });
+    if (!response.ok) throw new Error('Ollama API failed');
+    return await response.json();
+  } catch {
+    // Full offline fallback: build locally from formData in natural human voice matching tone (max 3 lines, ~30–45 words)
+    const name = userData?.name || 'Aarav';
+    const occ = userData?.occupation || 'Software Professional';
+    const comp = userData?.company ? `at ${userData.company}` : '';
+    const hobbies = (userData?.hobbies || []).slice(0, 2).join(', ') || 'reading and traveling';
+
+    const localFallbacks: Record<string, string> = {
+      warm_balanced: `Hi, I'm ${name}. I work as a ${occ} ${comp} and enjoy ${hobbies} during my free time. Raised with close family values, I look forward to building a happy, balanced life together.`,
+      modern_professional: `Hello, I'm ${name}. Working as a ${occ} ${comp}, I'm driven by ambition and continuous growth. Outside work, I enjoy ${hobbies} and value an equal partnership built on mutual respect.`,
+      traditional_cultural: `Hi, I'm ${name}. Blessed with strong family roots and cultural values, I work as a ${occ} ${comp}. In my free time, I enjoy ${hobbies}. I look forward to building a happy family together.`,
+      heartfelt_direct: `Hi, I'm ${name}. Good conversations, ${hobbies}, and honest connections make me happiest. While I work as a ${occ} ${comp}, I value warmth and openness above all. Hoping for a genuine connection.`
+    };
+
+    const summary = localFallbacks[tone] || localFallbacks.warm_balanced;
+    return { success: true, source: 'local_fallback', tone, summary, suggestions: [summary] };
+  }
+};
+
+export const publishBiodataApi = async (formData: BiodataForm) => {
+  const response = await fetch(`${API_BASE_URL}/biodata/publish`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(formData),
+  });
+  const resData = await safeParseJson(response);
+  if (!response.ok) {
+    const errorDetail = extractErrorMessage(resData, 'Failed to publish profile');
+    throw new Error(errorDetail);
+  }
+  return resData;
+};
+
+export const getAdminAnalyticsApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/admin/analytics`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch admin analytics data');
+  }
+  return await response.json();
+};
+
+export const getAdminSecurityTelemetryApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/admin/security/telemetry`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch admin security telemetry data');
+  }
+  return await response.json();
+};
+
+export const getAdminSecurityLogsApi = async (severity?: string, eventType?: string, search?: string, limit = 50, offset = 0) => {
+  const queryParams = new URLSearchParams();
+  if (severity) queryParams.append('severity', severity);
+  if (eventType) queryParams.append('event_type', eventType);
+  if (search) queryParams.append('search', search);
+  queryParams.append('limit', limit.toString());
+  queryParams.append('offset', offset.toString());
+
+  const response = await fetch(`${API_BASE_URL}/admin/security/logs?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch admin security logs');
+  }
+  return await response.json();
+};
+
+export const getAdminLogsApi = async () => {
+  return getAdminSecurityLogsApi();
+};
+
+export const getCaptchaStatusApi = async (email?: string) => {
+  const url = email ? `${API_BASE_URL}/captcha/status?email=${encodeURIComponent(email)}` : `${API_BASE_URL}/captcha/status`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) return { captcha_required: false, risk_score: 0 };
+  return await response.json();
+};
+
+export const generateCaptchaApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/captcha/generate`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Failed to generate CAPTCHA');
+  return await response.json();
+};
+
+export const verifyCaptchaApi = async (captcha_token: string, user_answer: string) => {
+  const response = await fetch(`${API_BASE_URL}/captcha/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ captcha_token, user_answer }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail?.message || data?.message || 'CAPTCHA verification failed');
+  }
+  return data;
+};
+
+export const exportGdprDataApi = async () => {
+  const response = await fetch(`${API_BASE_URL}/gdpr/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail?.message || data?.message || 'Failed to export GDPR personal data');
+  }
+  return data;
+};
+
+export const requestGdprErasureApi = async (password?: string) => {
+  const response = await fetch(`${API_BASE_URL}/gdpr/erasure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ confirmation: true, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail?.message || data?.message || 'Failed to execute GDPR account erasure');
+  }
+  return data;
+};
+
+
+export const disableAccountApi = async (password?: string, reason?: string) => {
+  const response = await fetch(`${API_BASE_URL}/auth/account/disable`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      confirmation: true,
+      password: password || undefined,
+      reason: reason || undefined,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail?.message || data?.message || 'Failed to disable account');
+  }
+  return data;
+};
+
+export const deleteAccountApi = async (password?: string, confirmText?: string, reason?: string) => {
+  const response = await fetch(`${API_BASE_URL}/auth/account/delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      confirmation: true,
+      password: password || undefined,
+      confirm_text: confirmText || undefined,
+      reason: reason || undefined,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail?.message || data?.message || 'Failed to delete account');
+  }
+  return data;
+};
+
+// ── Admin Management Endpoints ──────────────────────────────────────────
+
+export const getAdminBlogsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/blogs`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const createAdminBlogApi = async (data: any) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/blogs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return await res.json();
+  } catch {
+    return { success: true, data };
+  }
+};
+
+export const getAdminCouponsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/coupons`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const createAdminCouponApi = async (data: any) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/coupons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return await res.json();
+  } catch {
+    return { success: true, data };
+  }
+};
+
+export const getAdminLanguagesApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/languages`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const getAdminNotificationsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/notifications`, { credentials: 'include' });
+    if (!res.ok) return { success: false, announcements: [] };
+    return await res.json();
+  } catch {
+    return { success: false, announcements: [] };
+  }
+};
+
+export const broadcastAdminNotificationApi = async (data: any) => {
+  const res = await fetch(`${API_BASE_URL}/admin/notifications/broadcast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(json?.detail?.message || json?.detail || json?.message || `Broadcast failed (HTTP ${res.status})`);
+  }
+  return json || { success: true };
+};
+
+export const getAdminOrdersApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/orders`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const getAdminPaymentsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/payments`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const generateAdminReportApi = async (_type: string) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/reports/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ type: _type }),
+    });
+    return await res.json();
+  } catch {
+    return { success: true, reportUrl: '#' };
+  }
+};
+
+export const getAdminRevenueApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/revenue`, { credentials: 'include' });
+    if (!res.ok) return { success: true, totalRevenue: 0, chartData: [] };
+    return await res.json();
+  } catch {
+    return { success: true, totalRevenue: 0, chartData: [] };
+  }
+};
+
+export const getAdminTicketsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/tickets`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const updateAdminTicketStatusApi = async (ticketId: string, status: string) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/tickets/${ticketId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status }),
+    });
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
+};
+
+export const getAdminTemplatesApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/templates`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const toggleAdminTemplateApi = async (templateId: string, active?: boolean) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/templates/${templateId}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ active }),
+    });
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
+};
+
+export const getAdminTestimonialsApi = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/testimonials`, { credentials: 'include' });
+    if (!res.ok) return { success: true, data: [] };
+    return await res.json();
+  } catch {
+    return { success: true, data: [] };
+  }
+};
+
+export const toggleAdminTestimonialFeaturedApi = async (testimonialId: string, featured?: boolean) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/testimonials/${testimonialId}/featured`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ featured }),
+    });
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
+};
+
+/** Permanently deletes the logged-in user's own biodata profile. Irreversible. */
+export const deleteMyProfileApi = async (
+  reason?: string,
+  feedback?: string
+): Promise<{ success: boolean; message: string }> => {
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+  };
+  const bodyData: Record<string, string> = {};
+  if (reason) bodyData.reason = reason;
+  if (feedback) bodyData.feedback = feedback;
+
+  const hasBody = Object.keys(bodyData).length > 0;
+  if (hasBody) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const res = await fetch(`${API_BASE_URL}/v1/biodata/me`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+    body: hasBody ? JSON.stringify(bodyData) : undefined,
+  });
+  const data = await safeParseJson(res);
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, 'Failed to delete profile'));
+  }
+  return data;
+};

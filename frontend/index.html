@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-9SNC10Q5L8"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-9SNC10Q5L8');
+  </script>
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/logo-icon.png" />
+
+  <!-- Cache-Control to ensure fresh version on new deployments -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <!-- Primary SEO Meta Tags -->
+  <title translate="no" class="notranslate">True Marriage — Real People. Real Stories. Free Matrimonial Biodata Maker</title>
+  <meta name="title" content="True Marriage — Real People. Real Stories. Free Matrimonial Biodata Maker" />
+  <meta name="description" content="Create stunning marriage biodata for free in minutes. Download beautiful PDFs, browse verified matrimonial profiles, and discover authentic matches with True Marriage." />
+  <meta name="keywords" content="matrimonial biodata, marriage biodata maker, matrimonial biodata format, free biodata maker, matrimony profiles, matchmaking india, shaadi biodata format, true marriage" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <meta name="author" content="True Marriage" />
+  <meta name="theme-color" content="#F01472" />
+  <link rel="canonical" href="https://truemarriage.in/" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://truemarriage.in/" />
+  <meta property="og:site_name" content="True Marriage" />
+  <meta property="og:title" content="True Marriage — Real People. Real Stories. Free Matrimonial Biodata Maker" />
+  <meta property="og:description" content="Create stunning marriage biodata for free in minutes. Download beautiful PDFs and discover authentic matches." />
+  <meta property="og:image" content="https://truemarriage.in/logo.png" />
+  <meta property="og:locale" content="en_IN" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://truemarriage.in/" />
+  <meta name="twitter:title" content="True Marriage — Real People. Real Stories. Free Matrimonial Biodata Maker" />
+  <meta name="twitter:description" content="Create stunning marriage biodata for free in minutes. Download beautiful PDFs and discover authentic matches." />
+  <meta name="twitter:image" content="https://truemarriage.in/logo.png" />
+
+  <!-- JSON-LD Structured Data Schema for Google Search -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://truemarriage.in/#website",
+        "url": "https://truemarriage.in/",
+        "name": "True Marriage",
+        "description": "Modern matchmaking platform and free matrimonial biodata generator.",
+        "potentialAction": [
+          {
+            "@type": "SearchAction",
+            "target": "https://truemarriage.in/discover?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        ]
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://truemarriage.in/#organization",
+        "name": "True Marriage",
+        "url": "https://truemarriage.in/",
+        "logo": "https://truemarriage.in/logo.png"
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://truemarriage.in/#webapp",
+        "name": "True Marriage Biodata Maker",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "All",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "INR"
+        }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Typography Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Caveat:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Early DOM Safety Patch: Prevents Google Translate removeChild crash with React -->
+  <script>
+    (function () {
+      if (typeof Node === 'function' && Node.prototype) {
+        var proto = Node.prototype;
+        if (proto.__google_translate_safety_installed__) return;
+        proto.__google_translate_safety_installed__ = true;
+
+        var originalRemoveChild = proto.removeChild;
+        proto.removeChild = function (child) {
+          if (!child) return child;
+          try {
+            if (child.parentNode !== this) {
+              if (child.parentNode) {
+                return originalRemoveChild.call(child.parentNode, child);
+              }
+              return child;
+            }
+            return originalRemoveChild.call(this, child);
+          } catch (e) {
+            return child;
+          }
+        };
+
+        var originalInsertBefore = proto.insertBefore;
+        proto.insertBefore = function (newNode, referenceNode) {
+          if (!newNode) return newNode;
+          try {
+            if (referenceNode && referenceNode.parentNode !== this) {
+              if (referenceNode.parentNode && referenceNode.parentNode.parentNode === this) {
+                try { return originalInsertBefore.call(this, newNode, referenceNode.parentNode); } catch (e) {}
+              }
+              try { return proto.appendChild.call(this, newNode); } catch (e) { return newNode; }
+            }
+            return originalInsertBefore.call(this, newNode, referenceNode);
+          } catch (e) {
+            try { return proto.appendChild.call(this, newNode); } catch (err) { return newNode; }
+          }
+        };
+
+        var originalReplaceChild = proto.replaceChild;
+        proto.replaceChild = function (newChild, oldChild) {
+          if (!oldChild || !newChild) return oldChild;
+          try {
+            if (oldChild.parentNode !== this) {
+              if (oldChild.parentNode) {
+                return originalReplaceChild.call(oldChild.parentNode, newChild, oldChild);
+              }
+              return oldChild;
+            }
+            return originalReplaceChild.call(this, newChild, oldChild);
+          } catch (e) {
+            return oldChild;
+          }
+        };
+      }
+
+      // Title Lock: Prevents Google Translate from mutating the tab title
+      window.__intended_app_title__ = document.title;
+      if (typeof MutationObserver !== 'undefined') {
+        var titleEl = document.querySelector('title');
+        if (titleEl) {
+          var titleObserver = new MutationObserver(function () {
+            if (window.__intended_app_title__ && titleEl.textContent !== window.__intended_app_title__) {
+              titleEl.textContent = window.__intended_app_title__;
+            }
+          });
+          titleObserver.observe(titleEl, { childList: true, characterData: true, subtree: true });
+        }
+      }
+    })();
+  </script>
+  <link rel="preload" as="image" href="/images/translation_envelope.png" />
+</head>
+
+<body
+  class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-['Poppins',sans-serif] antialiased selection:bg-rose-500 selection:text-white transition-colors duration-300">
+  <div id="google_translate_element" style="position:absolute; top:-9999px; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none; overflow:hidden;">
+  </div>
+  <div id="root"></div>
+  <script>
+    (function () {
+      var savedLang = localStorage.getItem('app_lang');
+      if (savedLang && savedLang !== 'en') {
+        var cookieVal = '/en/' + savedLang;
+        document.cookie = 'googtrans=' + cookieVal + '; path=/;';
+        var domain = window.location.hostname;
+        if (domain && domain !== 'localhost' && domain.indexOf('127.0.0.1') === -1) {
+          document.cookie = 'googtrans=' + cookieVal + '; path=/; domain=.' + domain + ';';
+        }
+      } else {
+        var hostname = window.location.hostname;
+        var domainParts = hostname.split('.');
+        var domains = ['', hostname, '.' + hostname];
+        while (domainParts.length > 1) {
+          domains.push('.' + domainParts.join('.'));
+          domainParts.shift();
+        }
+        var paths = ['/', window.location.pathname, ''];
+        var cookieNames = ['googtrans', 'googtrans_opt', 'googtrans_domain', '_googtrans'];
+        domains.forEach(function (d) {
+          paths.forEach(function (p) {
+            cookieNames.forEach(function (c) {
+              document.cookie = c + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=' + p + ';' + (d ? ' domain=' + d + ';' : '');
+              document.cookie = c + '=/en/en; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=' + p + ';' + (d ? ' domain=' + d + ';' : '');
+            });
+          });
+        });
+      }
+    })();
+
+    function googleTranslateElementInit() {
+      if (window.google && window.google.translate) {
+        new window.google.translate.TranslateElement(
+          {
+            pageLanguage: 'en',
+            includedLanguages: 'en,hi,mr,gu,bn,ta,te,kn,ml,pa,or,as,ur',
+            autoDisplay: false,
+          },
+          'google_translate_element'
+        );
+      }
+    }
+  </script>
+  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

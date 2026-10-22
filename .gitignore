@@ -1,0 +1,57 @@
+# Environment / secrets
+.env
+.env.*
+.env.example
+*.env.example
+backend/.env
+frontend/.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+node_modules/
+
+# Frontend builds
+dist/
+build/
+.vite/
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.agents/
+skills-lock.json
+
+
+# Temporary files
+*.tmp
+*.temp
+*.patch
+
+# Dynamic generated template thumbnails and backgrounds
+backend/static/thumbnails/*.webp
+!backend/static/thumbnails/.gitkeep
+backend/static/backgrounds/*
+!backend/static/backgrounds/.gitkeep
+

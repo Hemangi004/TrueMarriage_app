@@ -1,0 +1,583 @@
+@import "tailwindcss";
+/* ─── Fix Fixed Navbar Scroll Cutoff ─────────────────────────────────── */
+/* Ensures anchor/scroll targets are not hidden under the fixed navbar    */
+html {
+  scroll-padding-top: 88px; /* matches fixed navbar height (h-20/h-24)   */
+}
+
+#features,
+#templates,
+#pricing,
+#success-stories,
+#biodata {
+  scroll-margin-top: 88px;
+}
+/* ─────────────────────────────────────────────────────────────────────── */
+
+
+@layer base {
+  :root {
+    --brand: #F01472;
+    --brand-dark: #C80E5A;
+    --brand-light: #FFF0F6;
+    --brand-border: #FBBDD8;
+    --page-bg: #FFF5F8;
+    --card-bg: #FFFFFF;
+    --border: #F3E8EE;
+    --text-main: #1F2937;
+    --text-sub: #6B7280;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #FFF2F6 0%, #FFFFFF 40%, #FFF0F5 100%);
+    background-attachment: fixed;
+    color: #1F2937;
+    overflow-x: hidden;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
+
+  /* Strict requirement: font weight across site must not exceed 450 */
+  h1, h2, h3, h4, h5, h6, .heading-font {
+    font-weight: 450 !important;
+  }
+}
+
+/* ── Wizard Typography & Layout Enforcement ────────────────── */
+.wizard-scope h1,
+.wizard-scope h2,
+.wizard-scope h3,
+.wizard-scope h4,
+.wizard-scope h5,
+.wizard-scope h6,
+.wizard-scope label,
+.wizard-scope button,
+.wizard-scope input,
+.wizard-scope select,
+.wizard-scope textarea,
+.wizard-scope p,
+.wizard-scope span,
+.wizard-scope div,
+.wizard-scope kbd,
+.wizard-scope strong,
+.wizard-scope b,
+.wizard-scope .font-bold,
+.wizard-scope .font-semibold,
+.wizard-scope .font-extrabold,
+.wizard-scope .font-black,
+.wizard-scope .font-medium,
+.wizard-scope [class*="font-"] {
+  font-weight: 450 !important;
+}
+
+/* Reduced font sizes and streamlined padding in wizard */
+.wizard-scope .wizard-input {
+  font-size: 0.8125rem !important; /* 13px */
+  padding: 9px 14px !important;
+}
+
+.wizard-scope .option-card {
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
+  font-size: 0.8125rem !important; /* 13px */
+  color: #1F2937;
+}
+
+.wizard-scope .option-card.selected {
+  color: #C80E5A;
+}
+
+.wizard-scope .pill-button {
+  padding: 5px 12px !important;
+  font-size: 0.75rem !important; /* 12px */
+}
+
+/* ── Custom Card ──────────────────────────────────────────────── */
+.wizard-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(240, 20, 114, 0.08);
+  box-shadow: 0 20px 40px -15px rgba(240, 20, 114, 0.07), 0 10px 20px -10px rgba(0, 0, 0, 0.03);
+  border-radius: 24px;
+}
+
+/* ── Custom Inputs ─────────────────────────────────────────────*/
+.wizard-input {
+  background: #FFFFFF;
+  border: 2px solid #E5E7EB;
+  border-radius: 16px;
+  color: #111827;
+  font-size: 0.9375rem;
+  padding: 12px 18px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+}
+
+.wizard-input:focus {
+  border-color: #F01472;
+  box-shadow: 0 0 0 4px rgba(240, 20, 114, 0.12);
+  outline: none;
+  background: #FFFFFF;
+}
+
+.wizard-input::placeholder {
+  color: #9CA3AF;
+}
+
+/* Icon offset for inputs containing icons */
+.wizard-input.with-icon,
+.wizard-input.has-icon,
+.wizard-input[class*="pl-"] {
+  padding-left: 56px !important;
+}
+
+textarea.wizard-input.with-icon,
+textarea.wizard-input[class*="pl-"] {
+  padding-left: 56px !important;
+  padding-top: 16px !important;
+}
+
+/* ── Option Cards & Pills ───────────────────────────────────── */
+.option-card {
+  border: 2px solid #E5E7EB;
+  border-radius: 18px;
+  padding: 16px 20px;
+  background: #FFFFFF;
+  color: #1F2937;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.option-card:hover {
+  border-color: #FBBDD8;
+  color: #111827;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(240, 20, 114, 0.08);
+}
+
+.option-card.selected {
+  border-color: #F01472;
+  background: #FFF0F6;
+  color: #C80E5A;
+  box-shadow: 0 0 0 2px rgba(240, 20, 114, 0.2);
+}
+
+.pill-button {
+  border: 2px solid #E5E7EB;
+  border-radius: 9999px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: #FFFFFF;
+  color: #374151;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill-button:hover {
+  border-color: #FBBDD8;
+  color: #F01472;
+  transform: scale(1.02);
+}
+
+.pill-button.selected {
+  border-color: #F01472;
+  background: #F01472;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(240, 20, 114, 0.25);
+}
+
+/* ── Gradient text ──────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #F01472 0%, #C80E5A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Primary button ─────────────────────────────────── */
+.gradient-btn {
+  background: linear-gradient(135deg, #F01472 0%, #E00A63 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px -4px rgba(240, 20, 114, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gradient-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -4px rgba(240, 20, 114, 0.45);
+}
+
+.gradient-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.gradient-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FBBDD8;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #F01472;
+}
+
+/* ── Custom Scrollbar Utility ───────────────────────── */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #FB7185 rgba(244, 244, 245, 0.8);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(244, 244, 245, 0.85);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #FDA4AF;
+  border-radius: 9999px;
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #E11D48;
+}
+
+/* ── Print / PDF Export ─────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #biodata-preview-wrapper,
+  #biodata-preview-wrapper * {
+    visibility: visible !important;
+  }
+
+  #biodata-preview-wrapper {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  #biodata-preview {
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    transform: none !important;
+    z-index: 99999;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+/* ── Floating Toast Slide Animations ── */
+@keyframes toastSlideDown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toastSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideRight {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-slide {
+  animation: toastSlideRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideUpRight {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-bottom-right {
+  animation: toastSlideUpRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Google Translate Stealth Engine Styles ── */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+#google_translate_element,
+.goog-te-gadget,
+.skiptranslate:not(.allow-translate),
+.goog-te-spinner-pos,
+.goog-te-spinner,
+.goog-te-spinner-animation,
+[class*="VIpgJd-ZVi9od"],
+[class*="goog-te-spinner"],
+.goog-te-gadget-icon,
+.goog-te-banner,
+div[class*="VIpgJd"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Mobile Responsive Utilities */
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.break-words {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .wizard-input {
+    font-size: 1rem;
+  }
+  .option-card {
+    padding: 12px 16px;
+  }
+  .pill-button {
+    padding: 8px 14px;
+    font-size: 0.875rem;
+  }
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* ── 3D Profile Flip Card Utilities ──────────────────────────── */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+}
+
+/* ── Mobile Ergonomic & Touch Optimizations ─────────────────── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media screen and (max-width: 767px) {
+  /* Prevent iOS Safari 38% auto-zoom on input focus */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Bottom clearance so page content does not hide behind fixed MobileBottomNav when logged in */
+  body.has-bottom-nav:not(.admin-body) {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 8px));
+  }
+}
+
+/* Safe area padding helper for modern iOS devices */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 16px));
+}
+
+/* Horizontal Touch Snap Carousel */
+.mobile-snap-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 1rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.mobile-snap-carousel::-webkit-scrollbar {
+  display: none;
+}
+.mobile-snap-carousel > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* ── Touch-Optimized Range Sliders (Age / Height Filters) ── */
+input[type="range"].accent-\[\#F01472\] {
+  height: 6px;
+  border-radius: 9999px;
+  background: #fce7f3;
+  outline: none;
+}
+
+input[type="range"].accent-\[\#F01472\]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #F01472 0%, #C80E5A 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(240, 20, 114, 0.4);
+  border: 2.5px solid #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"].accent-\[\#F01472\]::-webkit-slider-thumb:active {
+  transform: scale(1.18);
+  box-shadow: 0 4px 12px rgba(240, 20, 114, 0.55);
+}
+
+input[type="range"].accent-\[\#F01472\]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #F01472 0%, #C80E5A 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(240, 20, 114, 0.4);
+  border: 2.5px solid #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"].accent-\[\#F01472\]::-moz-range-thumb:active {
+  transform: scale(1.18);
+  box-shadow: 0 4px 12px rgba(240, 20, 114, 0.55);
+}
+
+/* Wizard mobile bottom scroll clearance to prevent footer collision */
+.wizard-scope {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 16px)) !important;
+}
+
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.animate-shimmer {
+  animation: shimmer 1.8s infinite;
+}

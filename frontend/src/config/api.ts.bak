@@ -1,0 +1,61 @@
+/**
+ * Centralized API configuration.
+ * Automatically loads from environment variables (e.g. VITE_API_URL) when deployed,
+ * falling back to local backend port 5000 during local development.
+ */
+
+const getEffectiveApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, origin } = window.location;
+
+    // Local development fallback
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/+$/, '');
+      return configured || `${protocol}//${hostname}:5000`;
+    }
+
+    // In production / web environment:
+    const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/+$/, '');
+    if (configured) {
+      try {
+        const configuredUrl = new URL(configured);
+        const currentRoot = hostname.replace(/^www\./, '').toLowerCase();
+        const configuredRoot = configuredUrl.hostname.replace(/^www\./, '').toLowerCase();
+
+        // If visiting on the same root domain (e.g. www.truemarriage.in and truemarriage.in),
+        // use the active window.location.origin to keep requests same-origin and avoid CORS/cookie issues
+        if (currentRoot === configuredRoot) {
+          return origin;
+        }
+        return configured;
+      } catch {
+        return configured;
+      }
+    }
+
+    return origin;
+  }
+  return (import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/+$/, '') || 'http://localhost:5000';
+};
+
+const RAW_BASE_URL = getEffectiveApiBaseUrl();
+
+// Normalize base root by stripping any trailing /api or /api/v1
+const normalizedRoot = RAW_BASE_URL
+  .replace(/\/api\/v1$/, '')
+  .replace(/\/api$/, '');
+
+export const API_ROOT_URL = normalizedRoot;
+export const API_BASE_URL = `${normalizedRoot}/api`;
+export const API_V1_BASE_URL = `${normalizedRoot}/api/v1`;
+
+export const getAssetUrl = (path?: string | null): string => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  if (path.startsWith('/')) {
+    return `${API_ROOT_URL}${path}`;
+  }
+  return `${API_ROOT_URL}/${path}`;
+};

@@ -1,0 +1,19 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Disable directory browsing
+  Options -Indexes
+
+  # Ensure default index document is index.html
+  DirectoryIndex index.html
+
+  # Prevent physical directory collision for /templates and /templates/
+  # Directly route requests to SPA index.html
+  RewriteRule ^templates/?$ /index.html [L,QSA,NC]
+
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
