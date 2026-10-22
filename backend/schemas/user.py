@@ -179,3 +179,16 @@ class DeleteAccountInput(BaseModel):
     confirmation: bool = True
     confirm_text: Optional[str] = None
     reason: Optional[str] = None
+
+
+class GoogleVerifyTokenInput(BaseModel):
+    id_token: str = Field(..., min_length=10, description="Google OAuth 2.0 ID Token (JWT)")
+
+
+class GoogleAuthResponse(BaseModel):
+    success: bool
+    message: str
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+

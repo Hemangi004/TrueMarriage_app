@@ -1,7 +1,11 @@
 import os
 from typing import List, Optional
+from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
+
+_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -121,6 +125,7 @@ class Settings(BaseSettings):
         alias="GOOGLE_REDIRECT_URI"
     )
     GOOGLE_CLIENT_REDIRECT_URI: Optional[str] = Field(default=None, alias="GOOGLE_CLIENT_REDIRECT_URI")
+    GOOGLE_ANDROID_CLIENT_ID: Optional[str] = Field(default=None, alias="GOOGLE_ANDROID_CLIENT_ID")
     FRONTEND_URL: str = Field(default="http://localhost:5173", alias="FRONTEND_URL")
 
     @model_validator(mode="after")
@@ -164,7 +169,12 @@ class Settings(BaseSettings):
         return self
 
     model_config = {
-        "env_file": (".env", "backend/.env"),
+        "env_file": (
+            str(_ROOT_DIR / ".env"),
+            str(_BACKEND_DIR / ".env"),
+            ".env",
+            "backend/.env",
+        ),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }

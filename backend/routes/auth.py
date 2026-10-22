@@ -16,7 +16,9 @@ from backend.schemas.user import (
     ForgotPasswordInput,
     PasswordResetInput,
     RegistrationResponse,
-    UserResponse
+    UserResponse,
+    GoogleVerifyTokenInput,
+    GoogleAuthResponse
 )
 from backend.schemas.otp import OTPVerifyInput
 from backend.services.registration_service import register_user, verify_registration_completion
@@ -450,40 +452,71 @@ def reset_password(
 import urllib.parse
 
 
-def _get_frontend_base_url(request: Request) -> str:
-    """Helper to resolve the frontend base URL safely from request origin/referer or settings."""
+def _is_allowed_origin(url_str: str) -> bool:
+    """Verifies that a redirect candidate belongs to configured origins or safe domains."""
+    if not url_str:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url_str)
+        if not parsed.scheme or not parsed.netloc:
+            return False
+        netloc = parsed.netloc.lower()
+        if any(blocked in netloc for blocked in ["google.com", "googleusercontent.com"]):
+            return False
+        candidate_root = f"{parsed.scheme}://{parsed.netloc}".rstrip("/").lower()
+        allowed_roots = [settings.FRONTEND_URL.rstrip("/").lower()]
+        if settings.GOOGLE_CLIENT_REDIRECT_URI:
+            allowed_roots.append(settings.GOOGLE_CLIENT_REDIRECT_URI.rstrip("/").lower())
+        for origin in settings.CORS_ORIGINS:
+            if origin:
+                allowed_roots.append(origin.rstrip("/").lower())
+        if candidate_root in allowed_roots:
+            return True
+        # Allow trusted localhost / truemarriage subdomains in development/production
+        if netloc in ("localhost", "127.0.0.1") or netloc.startswith("localhost:") or netloc.startswith("127.0.0.1:"):
+            return True
+        if netloc == "truemarriage.in" or netloc.endswith(".truemarriage.in"):
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _get_frontend_base_url(request: Request, state: Optional[str] = None) -> str:
+    """Helper to resolve the frontend base URL safely from signed state, request origin/referer, or settings."""
+    from backend.services.google_auth_service import extract_return_origin_from_state
+
+    # 1. Primary: Extract return origin securely embedded inside verified state token
+    if state:
+        origin_from_state = extract_return_origin_from_state(state)
+        if origin_from_state and _is_allowed_origin(origin_from_state):
+            return origin_from_state.rstrip("/")
+
+    # 2. Secondary: Check request origin or referer header
     fallback = (settings.GOOGLE_CLIENT_REDIRECT_URI or settings.FRONTEND_URL or "https://truemarriage.in").rstrip("/")
     referer = request.headers.get("origin") or request.headers.get("referer")
-    if referer:
-        try:
-            parsed = urllib.parse.urlparse(referer)
-            # Never redirect back to Google or external identity providers
-            if parsed.netloc and not any(blocked in parsed.netloc.lower() for blocked in ["google.com", "googleusercontent.com"]):
-                candidate = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
-                allowed_roots = [settings.FRONTEND_URL.rstrip("/")]
-                if settings.GOOGLE_CLIENT_REDIRECT_URI:
-                    allowed_roots.append(settings.GOOGLE_CLIENT_REDIRECT_URI.rstrip("/"))
-                for origin in settings.CORS_ORIGINS:
-                    allowed_roots.append(origin.rstrip("/"))
+    if referer and _is_allowed_origin(referer):
+        parsed = urllib.parse.urlparse(referer)
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
-                if any(candidate.lower() == root.lower() for root in allowed_roots if root):
-                    return candidate
-        except Exception:
-            pass
     return fallback
 
 
 @router.get("/google")
-async def google_auth_initiate(request: Request, redirect: bool = True):
+async def google_auth_initiate(
+    request: Request,
+    redirect: bool = True,
+    return_url: Optional[str] = None
+):
     """
     Initiates Google OAuth 2.0 flow:
-    1. Generates cryptographically secure CSRF state token.
+    1. Embeds client origin safely into cryptographically signed CSRF state token.
     2. Stores state in a short-lived HttpOnly cookie.
     3. Redirects browser to Google's consent screen (or returns auth URL if redirect=False).
     """
     from fastapi.responses import RedirectResponse
     import urllib.parse
-    from backend.services.google_auth_service import generate_oauth_state, verify_oauth_state, get_google_auth_url
+    from backend.services.google_auth_service import generate_oauth_state, get_google_auth_url
 
     has_client_id = bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_ID.strip())
     has_client_secret = bool(settings.GOOGLE_CLIENT_SECRET and settings.GOOGLE_CLIENT_SECRET.strip())
@@ -491,15 +524,25 @@ async def google_auth_initiate(request: Request, redirect: bool = True):
     if not has_client_id or not has_client_secret:
         err_param = urllib.parse.quote_plus("Google OAuth is not configured on the backend. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in backend/.env.")
         frontend_base = _get_frontend_base_url(request)
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    state = generate_oauth_state()
+    # Determine caller return origin
+    caller_origin = None
+    if return_url and _is_allowed_origin(return_url):
+        caller_origin = return_url.rstrip("/")
+    else:
+        req_origin = request.headers.get("origin") or request.headers.get("referer")
+        if req_origin and _is_allowed_origin(req_origin):
+            parsed = urllib.parse.urlparse(req_origin)
+            caller_origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+    state = generate_oauth_state(return_origin=caller_origin)
     auth_url = get_google_auth_url(state)
 
     if not redirect:
         return {"success": True, "auth_url": auth_url, "state": state}
 
-    redirect_response = RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+    redirect_response = RedirectResponse(url=auth_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
     # Set short-lived state cookie for CSRF verification (10 minutes)
     redirect_response.set_cookie(
         key="truemarriage_oauth_state",
@@ -539,37 +582,37 @@ async def google_auth_callback(
         authenticate_or_create_google_user
     )
 
-    frontend_base = _get_frontend_base_url(request)
+    frontend_base = _get_frontend_base_url(request, state=state)
 
     # Handle user cancellation / Google error
     if error:
         err_param = urllib.parse.quote_plus(f"Google sign-in was cancelled: {error}")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     if not code or not state:
         err_param = urllib.parse.quote_plus("Missing code or state from Google authorization response.")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    # Verify CSRF state token: cookie match OR cryptographic signature fallback (prevents mobile/WebKit ITP false positives)
+    # Verify CSRF state token: cookie match OR cryptographic signature fallback
     cookie_state = request.cookies.get("truemarriage_oauth_state")
     cookie_valid = bool(cookie_state and cookie_state == state)
     crypto_valid = verify_oauth_state(state) if state else False
 
     if not (cookie_valid or crypto_valid):
         err_param = urllib.parse.quote_plus("Invalid OAuth state. Potential CSRF attempt or session expired.")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     # Exchange code for access token
     token_ok, access_token, token_err = await exchange_google_code_for_token(code)
     if not token_ok or not access_token:
         err_param = urllib.parse.quote_plus(token_err or "Failed to exchange authorization code with Google.")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     # Fetch verified userinfo
     info_ok, userinfo, info_err = await fetch_google_userinfo(access_token)
     if not info_ok or not userinfo:
         err_param = urllib.parse.quote_plus(info_err or "Failed to retrieve verified profile from Google.")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     # Authenticate or create user & issue session
     client_ip = request.client.host if request.client else None
@@ -584,13 +627,13 @@ async def google_auth_callback(
 
     if not auth_ok or not raw_session_token:
         err_param = urllib.parse.quote_plus(auth_msg or "Authentication failed.")
-        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"{frontend_base}?oauth_error={err_param}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    # Success: Set HttpOnly session cookie AND pass token in redirect for browsers with strict third-party cookie restrictions
+    # Success: Set HttpOnly session cookie AND pass token in redirect for mobile / cross-site environments
     encoded_token = urllib.parse.quote_plus(raw_session_token)
     success_redirect = RedirectResponse(
         url=f"{frontend_base}?oauth_success=true&token={encoded_token}",
-        status_code=status.HTTP_302_FOUND
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT
     )
 
     success_redirect.set_cookie(
@@ -605,6 +648,83 @@ async def google_auth_callback(
     success_redirect.delete_cookie(key="truemarriage_oauth_state", path="/")
 
     return success_redirect
+
+
+@router.post("/google/verify", response_model=GoogleAuthResponse)
+async def google_auth_verify_token(
+    payload: GoogleVerifyTokenInput,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    """
+    Direct Google OAuth 2.0 ID Token Verification (Mobile & Web SDK):
+    1. Cryptographically verifies Google ID Token signature against Google's public JWKS.
+    2. Validates issuer, expiration, and authorized audience (Web and Android Client IDs).
+    3. Validates email verification.
+    4. Authenticates or creates local User with verified email.
+    5. Links Google identity in user_auth_identities.
+    6. Issues server-side session and returns raw Bearer session token + sets HttpOnly cookie.
+    """
+    from backend.services.google_auth_service import verify_google_id_token, authenticate_or_create_google_user
+    from backend.schemas.user import UserResponse
+
+    token_ok, claims, verify_err = verify_google_id_token(payload.id_token)
+    if not token_ok or not claims:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"success": False, "message": verify_err or "Invalid or unverified Google token."}
+        )
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    auth_ok, auth_msg, user, raw_session_token = authenticate_or_create_google_user(
+        db=db,
+        userinfo=claims,
+        ip_address=client_ip,
+        user_agent=user_agent
+    )
+
+    if not auth_ok or not user or not raw_session_token:
+        msg = auth_msg or "Google authentication failed."
+        if "blocked" in msg.lower() or "deactivated" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"success": False, "message": msg}
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "message": msg}
+        )
+
+    # Set HttpOnly session cookie on the response
+    response.set_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        value=raw_session_token,
+        max_age=settings.SESSION_EXPIRE_HOURS * 3600,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        path="/"
+    )
+
+    setattr(user, "access_token", raw_session_token)
+    setattr(user, "token", raw_session_token)
+    has_profile = bool(user.biodata)
+    is_completed = bool(user.biodata and getattr(user.biodata, "is_completed", False))
+    setattr(user, "has_profile", has_profile)
+    setattr(user, "is_profile_completed", is_completed)
+    setattr(user, "profile_id", user.biodata.id if user.biodata else None)
+
+    return GoogleAuthResponse(
+        success=True,
+        message="Google authentication successful.",
+        access_token=raw_session_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
+    )
+
 
 
 
