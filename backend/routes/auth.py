@@ -465,8 +465,6 @@ def _is_allowed_origin(url_str: str) -> bool:
             return False
         candidate_root = f"{parsed.scheme}://{parsed.netloc}".rstrip("/").lower()
         allowed_roots = [settings.FRONTEND_URL.rstrip("/").lower()]
-        if settings.GOOGLE_CLIENT_REDIRECT_URI:
-            allowed_roots.append(settings.GOOGLE_CLIENT_REDIRECT_URI.rstrip("/").lower())
         for origin in settings.CORS_ORIGINS:
             if origin:
                 allowed_roots.append(origin.rstrip("/").lower())
@@ -493,7 +491,7 @@ def _get_frontend_base_url(request: Request, state: Optional[str] = None) -> str
             return origin_from_state.rstrip("/")
 
     # 2. Secondary: Check request origin or referer header
-    fallback = (settings.GOOGLE_CLIENT_REDIRECT_URI or settings.FRONTEND_URL or "https://truemarriage.in").rstrip("/")
+    fallback = (settings.FRONTEND_URL or "https://truemarriage.in").rstrip("/")
     referer = request.headers.get("origin") or request.headers.get("referer")
     if referer and _is_allowed_origin(referer):
         parsed = urllib.parse.urlparse(referer)

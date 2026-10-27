@@ -211,27 +211,7 @@ export const initiateGoogleLogin = () => {
 
   const currentOrigin = window.location.origin;
   const targetUrl = `${API_BASE_URL}/auth/google?return_url=${encodeURIComponent(currentOrigin)}`;
-
-  // On local desktop development only, open a focused popup if not on mobile/touch screen
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  if (!isTouchDevice && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    const width = 500;
-    const height = 650;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const popup = window.open(
-      targetUrl,
-      'tm_google_auth',
-      `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
-    );
-
-    if (popup) {
-      return;
-    }
-  }
-
-  // Standard full-page redirect for mobile and production web
+  // Redirect in the same tab across mobile and desktop
   window.location.href = targetUrl;
 };
 
