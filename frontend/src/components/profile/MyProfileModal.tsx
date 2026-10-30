@@ -18,6 +18,9 @@ import {
   Languages,
   Headphones,
   Wallet,
+  Crown,
+  Sparkles,
+  RefreshCw,
   Settings,
   Check,
   LogOut,
@@ -36,7 +39,7 @@ interface MyProfileModalProps {
 
 export const MyProfileModal: React.FC<MyProfileModalProps> = ({ isOpen, onClose }) => {
   const { formData, updateFormData } = useBiodata();
-  const { user, logout, showAuthToast } = useAuth();
+  const { user, logout, showAuthToast, openPremiumCheckout, openManageSubscription } = useAuth();
   const { lang, setLang } = useI18n();
 
   // Sub-modals state
@@ -205,9 +208,17 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = ({ isOpen, onClose 
 
               {/* Name & Edit Profile */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight truncate">
-                  {displayTitle}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight truncate">
+                    {displayTitle}
+                  </h2>
+                  {user?.is_premium && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-[#F01472] to-[#FF4B8B] text-white shadow-2xs shrink-0">
+                      <Crown size={10} />
+                      PRO
+                    </span>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -314,20 +325,96 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = ({ isOpen, onClose 
               <ChevronRight size={17} className="text-gray-400 group-hover:text-gray-600 transition" />
             </button>
 
-            {/* 4. Membership Details */}
-            <button
-              type="button"
-              onClick={() => setMembershipModalOpen(true)}
-              className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-purple-50/40 transition cursor-pointer group"
-            >
-              <div className="flex items-center gap-3.5">
-                <Wallet size={18} className="text-gray-700 group-hover:text-purple-700 transition" />
-                <span className="text-sm font-medium text-gray-800 group-hover:text-gray-900">
-                  Membership details
-                </span>
+            {/* 4. Premium Subscription / 30-Day Free Trial */}
+            {!user?.is_premium ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openPremiumCheckout('premium_monthly');
+                }}
+                className="w-full px-5 py-3.5 flex items-center justify-between text-left bg-gradient-to-r from-pink-50/90 via-rose-50/70 to-pink-50/90 hover:from-pink-100/80 hover:to-rose-100/80 transition cursor-pointer group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#F01472] to-[#FF4B8B] text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Sparkles size={15} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#F01472] flex items-center gap-1.5">
+                      <span>Upgrade to Premium</span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-pink-600/85">
+                      30-Day Free Trial ??? ???0 Today
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={17} className="text-[#F01472] group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            ) : user?.is_subscription_cancelled ? (
+              <div className="w-full px-5 py-3.5 flex items-center justify-between bg-amber-50/60">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                    <Crown size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <span>PRO Access</span>
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                        Renewal Cancelled
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        openPremiumCheckout('premium_monthly');
+                      }}
+                      className="text-[11px] font-bold text-[#F01472] hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                    >
+                      <RefreshCw size={10} />
+                      <span>Reactivate Subscription ???</span>
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openManageSubscription();
+                  }}
+                  className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer shrink-0 ml-2"
+                >
+                  Details
+                </button>
               </div>
-              <ChevronRight size={17} className="text-gray-400 group-hover:text-gray-600 transition" />
-            </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openManageSubscription();
+                }}
+                className="w-full px-5 py-3.5 flex items-center justify-between text-left bg-pink-50/40 hover:bg-pink-50/80 transition cursor-pointer group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#F01472] to-[#FF4B8B] text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Crown size={15} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>Premium Member</span>
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                        ACTIVE
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-[#F01472]">
+                      Manage Subscription & Billing ???
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={17} className="text-pink-400 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
 
             {/* 5. Settings */}
             <button

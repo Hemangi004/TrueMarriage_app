@@ -51,10 +51,15 @@ def calculate_age_from_dob(dob_str: Optional[str]) -> Optional[int]:
         return None
 
 
-def extract_public_profile_dict(profile: BiodataProfileModel, include_contacts: bool = True) -> Dict[str, Any]:
+def extract_public_profile_dict(
+    profile: BiodataProfileModel,
+    include_contacts: bool = True,
+    viewer: Optional[User] = None
+) -> Dict[str, Any]:
     """
     Strict Whitelist Extraction: Maps BiodataProfileModel to safe public fields.
-    If include_contacts is True and hide_contact_details is False, exposes contact_details object.
+    If hide_contact_details is True, contact details are ONLY accessible by
+    premium users, admins, or the profile owner. Non-premium viewers receive a locked/masked preview.
     Zero passwords, OTPs, session tokens, or internal secrets exposed!
     """
     import json
@@ -150,10 +155,36 @@ def extract_public_profile_dict(profile: BiodataProfileModel, include_contacts: 
         or p_data.get("publicContactNumber")
     )
 
+    # Determine contact access rights
+    is_owner = bool(viewer and profile.user_id == viewer.id)
+    is_admin = bool(viewer and getattr(viewer, "role", None) == "ADMIN")
+    is_premium = bool(viewer and getattr(viewer, "is_premium_active", False))
+    can_access_contacts = is_owner or is_admin or is_premium
+
+    raw_phone = (
+        public_contact_phone
+        or p_data.get("contactNumber")
+        or p_data.get("phone")
+        or (profile.user.phone if profile.user else None)
+    )
+
+    # Compute masked phone representation for non-premium preview
+    masked_phone = None
+    if raw_phone:
+        clean_digits = re.sub(r"\D", "", str(raw_phone))
+        if len(clean_digits) >= 6:
+            prefix = clean_digits[:2]
+            suffix = clean_digits[-2:]
+            masked_phone = f"+91 {prefix}•••• ••{suffix}"
+        else:
+            masked_phone = "+91 ••••• •••••"
+
+    is_contact_locked = bool(profile.hide_contact_details and not can_access_contacts)
+
     contact_obj = None
-    if include_contacts and not profile.hide_contact_details:
+    if include_contacts and not is_contact_locked:
         contact_obj = {
-            "phone": public_contact_phone or p_data.get("contactNumber") or p_data.get("phone") or (profile.user.phone if profile.user else None),
+            "phone": raw_phone,
             "contact_to": public_contact_phone,
             "email": p_data.get("email") or (profile.user.email if profile.user else None),
             "contact_person": p_data.get("contactPerson") or p_data.get("guardianName") or user_name,
@@ -237,10 +268,12 @@ def extract_public_profile_dict(profile: BiodataProfileModel, include_contacts: 
         "published_at": profile.published_at or profile.created_at,
         "is_password_protected": bool(profile.is_password_protected),
         "hide_contact_details": bool(profile.hide_contact_details),
-        "contact_to": (contact_obj.get("contact_to") if contact_obj else None) or (public_contact_phone if not profile.hide_contact_details else None),
-        "contactTo": (contact_obj.get("contact_to") if contact_obj else None) or (public_contact_phone if not profile.hide_contact_details else None),
-        "phone": (contact_obj.get("phone") if contact_obj else None) or (public_contact_phone if not profile.hide_contact_details else None) or (p_data.get("contactNumber") if not profile.hide_contact_details else None) or (p_data.get("phone") if not profile.hide_contact_details else None),
-        "contact_number": (contact_obj.get("phone") if contact_obj else None) or (public_contact_phone if not profile.hide_contact_details else None) or (p_data.get("contactNumber") if not profile.hide_contact_details else None) or (p_data.get("phone") if not profile.hide_contact_details else None),
+        "is_contact_locked": is_contact_locked,
+        "masked_phone": masked_phone,
+        "contact_to": contact_obj.get("contact_to") if contact_obj else None,
+        "contactTo": contact_obj.get("contact_to") if contact_obj else None,
+        "phone": contact_obj.get("phone") if contact_obj else None,
+        "contact_number": contact_obj.get("phone") if contact_obj else None,
         "contact_details": contact_obj,
     }
 
@@ -425,7 +458,7 @@ def list_discoverable_profiles(
             if user_obj.phone and p_phone and str(p_phone).strip() == str(user_obj.phone).strip():
                 continue
 
-        extracted = extract_public_profile_dict(p)
+        extracted = extract_public_profile_dict(p, viewer=user_obj)
 
         if not extracted.get("gender"):
             continue
@@ -456,7 +489,11 @@ def get_public_profile_detail(db: Session, profile_id: str, current_user_id: Opt
     if not profile:
         return False, 404, "Profile not found.", None
 
-    return True, 200, "Success", extract_public_profile_dict(profile)
+    viewer = None
+    if current_user_id:
+        viewer = db.scalar(select(User).where(User.id == current_user_id))
+
+    return True, 200, "Success", extract_public_profile_dict(profile, include_contacts=True, viewer=viewer)
 
 
 def get_public_profile_by_slug_or_id(
@@ -527,7 +564,11 @@ def get_public_profile_by_slug_or_id(
             }
             return True, 200, "Profile is password protected.", locked_dict, True
 
-    extracted = extract_public_profile_dict(profile, include_contacts=True)
+    viewer = None
+    if visitor_user_id:
+        viewer = db.scalar(select(User).where(User.id == visitor_user_id))
+
+    extracted = extract_public_profile_dict(profile, include_contacts=True, viewer=viewer)
     extracted["is_locked"] = False
     return True, 200, "Success", extracted, False
 

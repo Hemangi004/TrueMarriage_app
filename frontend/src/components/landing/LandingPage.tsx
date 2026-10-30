@@ -332,6 +332,7 @@ export const LandingPage: React.FC<{
     openLogin,
     openRegister,
     requireAuth,
+    openPremiumCheckout,
   } = useAuth();
   const { t, lang } = useI18n();
   const navigate = useNavigate();
@@ -539,13 +540,16 @@ export const LandingPage: React.FC<{
     },
     {
       name: t("Premium"),
-      price: "₹299",
-      period: t("per month"),
+      price: "₹0",
+      period: t("for 30 days (then ₹299/mo)"),
       borderColor: "border-[#F01472]",
-      badge: t("Most Popular"),
-      features: premiumFeatures,
-      cta: t("Start your 30-day trial today"),
-      subCta: t("No credit card required"),
+      badge: t("30-Day Free Trial"),
+      features: [
+        t("30-Day 100% Free Trial (₹0 Today)"),
+        ...premiumFeatures,
+      ],
+      cta: t("Start 30-Day Free Trial"),
+      subCta: t("₹0 charged today • Cancel anytime"),
       ctaBg:
         "bg-gradient-to-r from-[#F01472] to-[#E11D48] text-white hover:brightness-105 shadow-lg shadow-pink-400/40 font-semibold",
     },
@@ -1198,13 +1202,14 @@ export const LandingPage: React.FC<{
                           plan.name === "Premium" ||
                           plan.name === t("Premium")
                         ) {
-                          recordPremiumClickApi()
-                            .then(() => {
-                              setShowFreeTrialModal(true);
-                            })
-                            .catch(() => {
-                              setShowFreeTrialModal(true);
-                            });
+                          recordPremiumClickApi().catch(() => {});
+                          if (user?.is_premium) {
+                            goToTemplates();
+                          } else {
+                            requireAuth(() => {
+                              openPremiumCheckout('premium_monthly');
+                            }, t("Please log in to upgrade to Premium."));
+                          }
                         } else {
                           recordFreeClickApi().catch(() => {});
                           requireAuth(() => goToWizard());
@@ -1350,16 +1355,16 @@ export const LandingPage: React.FC<{
                     recordPremiumClickApi()
                       .then(() => {
                         setShowFreeTrialModal(false);
-                        requireAuth(() => goToWizard());
+                        requireAuth(() => openPremiumCheckout('premium_monthly'));
                       })
                       .catch(() => {
                         setShowFreeTrialModal(false);
-                        requireAuth(() => goToWizard());
+                        requireAuth(() => openPremiumCheckout('premium_monthly'));
                       });
                   }}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#F01472] to-[#E11D48] hover:opacity-95 text-white font-bold text-sm transition shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {t("Start the Free Trial")} <ArrowRight size={16} />
+                  {t("Start 30-Day Free Trial (₹0 Today)")} <ArrowRight size={16} />
                 </button>
                 <button
                   onClick={() => {

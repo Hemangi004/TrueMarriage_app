@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   Share2,
   Loader2,
+  Crown,
 } from 'lucide-react';
 import { generateHighResPdf, downloadPdfBuffer, type PdfOptions } from '../../utils/pdfGenerator';
 import { useBiodata } from '../../context/BiodataContext';
+import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
 import { recordDownloadedTemplate, type TemplateItem } from '../../services/templateService';
 import { BiodataRenderer } from '../rendering/BiodataRenderer';
@@ -42,6 +44,10 @@ export const ActiveTemplateWorkspace: React.FC<ActiveTemplateWorkspaceProps> = (
 }) => {
   const { formData, profileId, slug, updateFormData } = useBiodata();
   const { lang } = useI18n();
+  const { user, openPremiumCheckout } = useAuth();
+  const isTemplatePro = activeTemplate.pricing_type === 'PREMIUM' || Boolean(activeTemplate.is_luxury);
+  const isUnlocked = Boolean(user?.is_premium || user?.role === 'ADMIN');
+  const requiresPayment = isTemplatePro && !isUnlocked;
 
   // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -202,6 +208,14 @@ export const ActiveTemplateWorkspace: React.FC<ActiveTemplateWorkspaceProps> = (
 
   const handleInstantDownloadPdf = async () => {
     if (!canvasRef.current || isDownloadingPdf) return;
+
+    if (requiresPayment) {
+      openPremiumCheckout('premium_monthly', () => {
+        handleInstantDownloadPdf();
+      });
+      return;
+    }
+
     setIsDownloadingPdf(true);
     showToast('Generating high-resolution A4 PDF...');
 
@@ -364,12 +378,21 @@ export const ActiveTemplateWorkspace: React.FC<ActiveTemplateWorkspaceProps> = (
             type="button"
             onClick={handleInstantDownloadPdf}
             disabled={isDownloadingPdf}
-            className="px-4 sm:px-5 py-1.5 rounded-full bg-gradient-to-r from-[#E11D48] via-rose-600 to-pink-600 hover:opacity-95 disabled:opacity-75 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-rose-950/15"
+            className={`px-4 sm:px-5 py-1.5 rounded-full hover:opacity-95 disabled:opacity-75 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+              requiresPayment
+                ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-rose-600 shadow-amber-500/25'
+                : 'bg-gradient-to-r from-[#E11D48] via-rose-600 to-pink-600 shadow-rose-950/15'
+            }`}
           >
             {isDownloadingPdf ? (
               <>
                 <Loader2 size={13} className="animate-spin" />
                 <span>Downloading A4...</span>
+              </>
+            ) : requiresPayment ? (
+              <>
+                <Crown size={13} />
+                <span>Unlock PRO & Download</span>
               </>
             ) : (
               <>

@@ -306,7 +306,11 @@ def issue_jwt_token(
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(request: Request, current_user: User = Depends(get_current_user)):
+def get_me(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Returns profile details for the currently authenticated active user.
     Session token is read automatically from the HttpOnly cookie.
@@ -317,8 +321,33 @@ def get_me(request: Request, current_user: User = Depends(get_current_user)):
         setattr(current_user, "access_token", token_val)
     has_profile = bool(current_user.biodata)
     is_completed = bool(current_user.biodata and getattr(current_user.biodata, "is_completed", False))
+    is_active_premium = False
+    if current_user.is_premium:
+        if not current_user.premium_until:
+            is_active_premium = True
+        else:
+            until_dt = current_user.premium_until
+            if until_dt.tzinfo is None:
+                until_dt = until_dt.replace(tzinfo=timezone.utc)
+            is_active_premium = until_dt > datetime.now(timezone.utc)
+
+    is_cancelled = False
+    if is_active_premium:
+        from backend.models.payment import PaymentOrder
+        sub_stmt = (
+            select(PaymentOrder)
+            .where(PaymentOrder.user_id == current_user.id, PaymentOrder.status == "COMPLETED")
+            .order_by(PaymentOrder.created_at.desc())
+        )
+        sub_order = db.scalar(sub_stmt)
+        if sub_order and sub_order.payment_method == "CANCELLED_RENEWAL":
+            is_cancelled = True
+
     setattr(current_user, "has_profile", has_profile)
     setattr(current_user, "is_profile_completed", is_completed)
+    setattr(current_user, "is_premium", is_active_premium)
+    setattr(current_user, "is_subscription_cancelled", is_cancelled)
+    setattr(current_user, "subscription_status", "cancelled" if is_cancelled else ("active" if is_active_premium else "none"))
     setattr(current_user, "profile_id", current_user.biodata.id if current_user.biodata else None)
     return current_user
 

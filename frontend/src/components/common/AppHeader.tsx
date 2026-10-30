@@ -188,7 +188,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenLogin, onOpenRegiste
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-rose-100/80 shadow-xs">
+      <header className="hidden md:block sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-rose-100/80 shadow-xs">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-18 sm:h-20 flex items-center justify-between gap-4 relative">
           <button
             type="button"

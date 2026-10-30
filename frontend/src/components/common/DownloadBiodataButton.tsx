@@ -37,7 +37,7 @@ export const DownloadBiodataButton: React.FC<DownloadBiodataButtonProps> = ({
 }) => {
   const navigate = useNavigate();
   const { formData, profileId, slug } = useBiodata();
-  const { user } = useAuth();
+  const { user, openPremiumCheckout } = useAuth();
   const { lang } = useI18n();
 
   const [isOpenMenu, setIsOpenMenu] = useState(false);
@@ -148,6 +148,15 @@ export const DownloadBiodataButton: React.FC<DownloadBiodataButtonProps> = ({
    * Execute PDF Generation using the supplied or fetched template
    */
   const executePdfDownload = async (template: TemplateItem) => {
+    const isTemplatePro = template.pricing_type === 'PREMIUM' || Boolean(template.is_luxury);
+    const isUnlocked = Boolean(user?.is_premium || user?.role === 'ADMIN');
+    if (isTemplatePro && !isUnlocked) {
+      openPremiumCheckout('premium_monthly', () => {
+        executePdfDownload(template);
+      });
+      return;
+    }
+
     try {
       setIsGenerating(true);
       setGenerationStep('Preparing biodata template...');

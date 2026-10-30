@@ -128,6 +128,11 @@ class Settings(BaseSettings):
     GOOGLE_ANDROID_CLIENT_ID: Optional[str] = Field(default=None, alias="GOOGLE_ANDROID_CLIENT_ID")
     FRONTEND_URL: str = Field(default="http://localhost:5173", alias="FRONTEND_URL")
 
+    # Razorpay Gateway Configuration
+    RAZORPAY_KEY_ID: str = Field(default="rzp_test_ThWrwwrKMHTFrN", alias="RAZORPAY_KEY_ID")
+    RAZORPAY_KEY_SECRET: str = Field(default="kpTkv63ms7jd6lw87YmHqZq1", alias="RAZORPAY_KEY_SECRET")
+    RAZORPAY_CURRENCY: str = Field(default="INR", alias="RAZORPAY_CURRENCY")
+
     @model_validator(mode="after")
     def resolve_aliases_and_fallbacks(self) -> "Settings":
         """Resolve legacy variable names and apply fallback defaults."""

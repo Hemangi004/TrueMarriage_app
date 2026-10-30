@@ -13,6 +13,10 @@ export interface User {
   phone?: string | null;
   is_phone_verified?: boolean;
   is_profile_completed?: boolean;
+  is_premium?: boolean;
+  premium_until?: string | null;
+  is_subscription_cancelled?: boolean;
+  subscription_status?: string;
 }
 
 interface AuthContextType {
@@ -42,6 +46,15 @@ interface AuthContextType {
   setPostLoginAction: (action: (() => void) | null) => void;
   executePostLoginAction: (customUser?: User | null) => boolean;
   loginWithGoogleIdToken?: (idToken: string) => Promise<any>;
+  openPremiumCheckout: (planId?: string, onSuccess?: () => void) => void;
+  isPremiumModalOpen: boolean;
+  setIsPremiumModalOpen: (open: boolean) => void;
+  closePremiumModal: () => void;
+  premiumModalPlanId: string;
+  premiumModalSuccessCb?: () => void;
+  isManageSubscriptionOpen: boolean;
+  openManageSubscription: () => void;
+  closeManageSubscription: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -388,6 +401,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumModalPlanId, setPremiumModalPlanId] = useState<string>('premium_monthly');
+  const [premiumModalSuccessCb, setPremiumModalSuccessCb] = useState<(() => void) | undefined>(undefined);
+
+  const openPremiumCheckout = (planId: string = 'premium_monthly', onSuccess?: () => void) => {
+    if (!authenticated) {
+      requireAuth(() => {
+        openPremiumCheckout(planId, onSuccess);
+      }, 'Please log in to upgrade to TrueMarriage Premium.');
+      return;
+    }
+
+    setPremiumModalPlanId(planId);
+    setPremiumModalSuccessCb(() => onSuccess);
+    setIsPremiumModalOpen(true);
+  };
+
+  const closePremiumModal = () => {
+    setIsPremiumModalOpen(false);
+    setPremiumModalSuccessCb(undefined);
+  };
+
+  const [isManageSubscriptionOpen, setIsManageSubscriptionOpen] = useState(false);
+
+  const openManageSubscription = () => {
+    setIsManageSubscriptionOpen(true);
+  };
+
+  const closeManageSubscription = () => {
+    setIsManageSubscriptionOpen(false);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -417,6 +462,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         postLoginAction,
         setPostLoginAction,
         executePostLoginAction,
+        openPremiumCheckout,
+        isPremiumModalOpen,
+        setIsPremiumModalOpen,
+        closePremiumModal,
+        premiumModalPlanId,
+        premiumModalSuccessCb,
+        isManageSubscriptionOpen,
+        openManageSubscription,
+        closeManageSubscription,
       }}
     >
       {children}

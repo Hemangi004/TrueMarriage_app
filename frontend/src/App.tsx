@@ -26,6 +26,8 @@ import { LoginModal } from './components/modals/LoginModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { ForgotPasswordModal } from './components/modals/ForgotPasswordModal';
+import { PremiumUpgradeModal } from './components/modals/PremiumUpgradeModal';
+import { ManageSubscriptionModal } from './components/modals/ManageSubscriptionModal';
 
 import { AppHeader } from './components/common/AppHeader';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
@@ -297,6 +299,12 @@ const MainContent: React.FC = () => {
     openLogin,
     openRegister,
     openForgotPassword,
+    isPremiumModalOpen,
+    closePremiumModal,
+    premiumModalPlanId,
+    premiumModalSuccessCb,
+    isManageSubscriptionOpen,
+    closeManageSubscription,
   } = useAuth();
 
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -348,12 +356,16 @@ const MainContent: React.FC = () => {
 
   return (
     <>
-      {currentPage !== 'landing' && currentPage !== 'admin' && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register' && (
-        <AppHeader
-          onOpenLogin={openLogin}
-          onOpenRegister={openRegister}
-        />
-      )}
+      {currentPage !== 'landing' &&
+        currentPage !== 'admin' &&
+        location.pathname !== '/' &&
+        location.pathname !== '/login' &&
+        location.pathname !== '/register' && (
+          <AppHeader
+            onOpenLogin={openLogin}
+            onOpenRegister={openRegister}
+          />
+        )}
 
       {isProfileLocked ? (
         <Routes>
@@ -366,7 +378,10 @@ const MainContent: React.FC = () => {
             path="/"
             element={
               isAuthenticated ? (
-                <Navigate to={isAdminUser ? "/admin" : (isProfileLocked ? "/wizard" : "/discover")} replace />
+                <Navigate
+                  to={isAdminUser ? '/admin' : isProfileLocked ? '/wizard' : '/discover'}
+                  replace
+                />
               ) : (
                 <LoginPage onOpenRegister={openRegister} onOpenForgotPassword={openForgotPassword} />
               )
@@ -376,7 +391,10 @@ const MainContent: React.FC = () => {
             path="/landing"
             element={
               isAuthenticated ? (
-                <Navigate to={isAdminUser ? "/admin" : (isProfileLocked ? "/wizard" : "/discover")} replace />
+                <Navigate
+                  to={isAdminUser ? '/admin' : isProfileLocked ? '/wizard' : '/discover'}
+                  replace
+                />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -520,6 +538,18 @@ const MainContent: React.FC = () => {
         isOpen={isForgotPasswordOpen}
         onClose={() => setForgotPasswordOpen(false)}
         onOpenLogin={openLogin}
+      />
+
+      <PremiumUpgradeModal
+        isOpen={isPremiumModalOpen}
+        onClose={closePremiumModal}
+        defaultPlanId={premiumModalPlanId}
+        onSuccess={premiumModalSuccessCb}
+      />
+
+      <ManageSubscriptionModal
+        isOpen={isManageSubscriptionOpen}
+        onClose={closeManageSubscription}
       />
 
       <QRCodeModal

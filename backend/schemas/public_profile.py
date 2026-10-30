@@ -64,6 +64,8 @@ class PublicProfileListItem(BaseModel):
     contact_to: Optional[str] = None
     contactTo: Optional[str] = None
     contact_details: Optional[ContactDetails] = None
+    is_contact_locked: Optional[bool] = False
+    masked_phone: Optional[str] = None
 
 
 class PublicProfileDetailResponse(PublicProfileListItem):

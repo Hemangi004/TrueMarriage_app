@@ -16,3 +16,4 @@ cryptography>=42.0.0
 pillow>=10.0.0
 opencv-python-headless>=5.0.0
 numpy>=2.0.0
+razorpay>=2.0.0

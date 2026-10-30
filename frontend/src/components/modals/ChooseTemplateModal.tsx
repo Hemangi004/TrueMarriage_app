@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -7,6 +7,7 @@ import {
   Download,
   Palette,
   AlertCircle,
+  Crown,
 } from 'lucide-react';
 import {
   searchTemplatesApi,
@@ -14,6 +15,7 @@ import {
 } from '../../services/templateService';
 import { BiodataRenderer, DEFAULT_FEMALE_SAMPLE } from '../rendering/BiodataRenderer';
 import { useBiodata } from '../../context/BiodataContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChooseTemplateModalProps {
   isOpen: boolean;
@@ -36,6 +38,20 @@ export const ChooseTemplateModal: React.FC<ChooseTemplateModalProps> = ({
   const [filterType, setFilterType] = useState<'ALL' | 'FREE' | 'PREMIUM'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const { formData } = useBiodata();
+  const { user, openPremiumCheckout } = useAuth();
+  const isUnlocked = Boolean(user?.is_premium || user?.role === 'ADMIN');
+
+  const handleCardClick = (tpl: TemplateItem) => {
+    const isPro = tpl.pricing_type === 'PREMIUM' || Boolean(tpl.is_luxury);
+    if (isPro && !isUnlocked) {
+      openPremiumCheckout('premium_monthly', () => {
+        onSelectTemplate(tpl);
+        onClose();
+      });
+      return;
+    }
+    onSelectTemplate(tpl);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -261,7 +277,7 @@ export const ChooseTemplateModal: React.FC<ChooseTemplateModalProps> = ({
                 return (
                   <div
                     key={tpl.id}
-                    onClick={() => onSelectTemplate(tpl)}
+                    onClick={() => handleCardClick(tpl)}
                     className={`group relative bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-pointer shadow-xs hover:shadow-xl hover:-translate-y-1 ${
                       isLastUsed
                         ? 'border-2 border-[#F01472] ring-4 ring-rose-500/10'
@@ -317,8 +333,17 @@ export const ChooseTemplateModal: React.FC<ChooseTemplateModalProps> = ({
                       {/* Overlay On Hover */}
                       <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center p-4">
                         <span className="px-4 py-2 rounded-full bg-white text-slate-900 text-xs font-black shadow-lg flex items-center gap-1.5 transform translate-y-1 group-hover:translate-y-0 transition duration-200">
-                          <Download size={14} className="text-[#F01472]" />
-                          Download with this Template
+                          {isPro && !isUnlocked ? (
+                            <>
+                              <Crown size={14} className="text-amber-500" />
+                              Unlock Luxury Template
+                            </>
+                          ) : (
+                            <>
+                              <Download size={14} className="text-[#F01472]" />
+                              Download with this Template
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -347,16 +372,27 @@ export const ChooseTemplateModal: React.FC<ChooseTemplateModalProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelectTemplate(tpl);
+                          handleCardClick(tpl);
                         }}
                         className={`w-full py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
-                          isLastUsed
+                          isPro && !isUnlocked
+                            ? 'bg-gradient-to-r from-amber-500 to-rose-600 hover:brightness-105 text-white shadow-amber-500/20'
+                            : isLastUsed
                             ? 'bg-rose-50 text-[#F01472] border border-rose-200 hover:bg-[#F01472] hover:text-white'
                             : 'bg-slate-900 hover:bg-[#F01472] text-white'
                         }`}
                       >
-                        <Download size={13} />
-                        <span>Select & Download</span>
+                        {isPro && !isUnlocked ? (
+                          <>
+                            <Crown size={13} />
+                            <span>Unlock PRO (30 Days Free)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download size={13} />
+                            <span>Select & Download</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>

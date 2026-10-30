@@ -5,6 +5,7 @@ import { DEFAULT_MARATHI_BIODATA_ELEMENTS, type TemplateItem } from "../../servi
 import { BiodataRenderer, DEFAULT_FEMALE_SAMPLE } from "../rendering/BiodataRenderer";
 import { TEN_DUMMY_PROFILES } from "../../utils/dummyBiodataProfiles";
 import { FloatingPetals } from "../landing/FloatingPetals";
+import { useAuth } from "../../context/AuthContext";
 
 interface TemplatePreviewModalProps {
   template: TemplateItem | null;
@@ -68,7 +69,10 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen || !template) return null;
-  const isPremium = template.pricing_type === "PREMIUM";
+  const { user, openPremiumCheckout } = useAuth();
+  const isPremium = template.pricing_type === "PREMIUM" || Boolean(template.is_luxury);
+  const isUnlocked = Boolean(user?.is_premium || user?.role === "ADMIN");
+  const requiresPayment = isPremium && !isUnlocked;
 
   const previewData =
     userData ||
@@ -193,6 +197,16 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
           <div className="space-y-2.5 mt-auto pt-2">
             <button
               onClick={() => {
+                if (requiresPayment) {
+                  import('../../services/adminUserAnalysisService')
+                    .then((mod) => mod.recordPremiumClickApi())
+                    .catch(() => {});
+                  openPremiumCheckout('premium_monthly', () => {
+                    onSelectTemplate(template);
+                    onClose();
+                  });
+                  return;
+                }
                 if (isPremium) {
                   import('../../services/adminUserAnalysisService')
                     .then((mod) => mod.recordPremiumClickApi())
@@ -204,9 +218,20 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                 }
                 onSelectTemplate(template);
               }}
-              className="w-full py-3.5 px-6 rounded-full bg-gradient-to-r from-[#e11d48] via-[#e91e63] to-[#f43f5e] hover:brightness-105 active:scale-[0.99] text-white font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_25px_rgba(233,30,99,0.35)] hover:shadow-[0_14px_32px_rgba(233,30,99,0.48)]"
+              className={`w-full py-3.5 px-6 rounded-full hover:brightness-105 active:scale-[0.99] text-white font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                requiresPayment
+                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-rose-600 shadow-[0_10px_25px_rgba(245,158,11,0.35)] hover:shadow-[0_14px_32px_rgba(245,158,11,0.48)]'
+                  : 'bg-gradient-to-r from-[#e11d48] via-[#e91e63] to-[#f43f5e] shadow-[0_10px_25px_rgba(233,30,99,0.35)] hover:shadow-[0_14px_32px_rgba(233,30,99,0.48)]'
+              }`}
             >
-              <span>Create My Profile</span>
+              {requiresPayment ? (
+                <>
+                  <Crown size={15} />
+                  <span>Unlock with 30-Day Free Trial</span>
+                </>
+              ) : (
+                <span>Create My Profile</span>
+              )}
             </button>
             <button
               onClick={onClose}
