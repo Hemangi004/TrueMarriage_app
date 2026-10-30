@@ -97,6 +97,33 @@ def init_db() -> None:
     except Exception as e:
         logger.warning(f"Could not auto-migrate is_completed column on biodata_profiles: {e}")
 
+    # Ensure is_premium and premium_until columns exist on users table
+    try:
+        import sqlalchemy as sa
+        inspector = inspect(engine)
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            with engine.connect() as conn:
+                if "is_premium" not in columns:
+                    conn.execute(sa.text("ALTER TABLE users ADD COLUMN is_premium BOOLEAN NOT NULL DEFAULT 0;"))
+                    print("[INIT_DB] Added is_premium column to users table.")
+                if "premium_until" not in columns:
+                    conn.execute(sa.text("ALTER TABLE users ADD COLUMN premium_until DATETIME NULL;"))
+                    print("[INIT_DB] Added premium_until column to users table.")
+                if "is_phone_verified" in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE users MODIFY COLUMN is_phone_verified BOOLEAN NOT NULL DEFAULT 0;"))
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE users ADD COLUMN is_phone_verified BOOLEAN NOT NULL DEFAULT 0;"))
+                    except Exception:
+                        pass
+                conn.commit()
+    except Exception as e:
+        logger.warning(f"Could not auto-migrate is_premium columns on users: {e}")
+
     # Verify tables
     inspector = inspect(engine)
     tables = inspector.get_table_names()
@@ -307,6 +334,13 @@ def _seed_default_templates() -> None:
         print(f"[INIT_DB ERROR] Failed to seed/sync templates: {e}")
     finally:
         db.close()
+
+    # Ensure Razorpay test accounts are seeded and ready
+    try:
+        from backend.scripts.seed_razorpay_test_account import seed_test_accounts
+        seed_test_accounts()
+    except Exception as e:
+        print(f"[INIT_DB WARNING] Could not seed test accounts: {e}")
 
 
 

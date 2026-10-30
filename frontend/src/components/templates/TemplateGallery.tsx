@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Check,
+  Crown,
 } from "lucide-react";
 import {
   recordDownloadedTemplate,
@@ -169,7 +170,7 @@ const TemplateThumbnailCard: React.FC<TemplateThumbnailCardProps> = ({
 };
 
 export const TemplateGallery: React.FC = () => {
-  const { isAuthenticated, isLoading, openLogin, user } = useAuth();
+  const { isAuthenticated, isLoading, openLogin, user, openPremiumCheckout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -407,6 +408,16 @@ export const TemplateGallery: React.FC = () => {
   };
 
   const handleSelectActiveTemplate = async (tpl: TemplateItem) => {
+    const isPro = tpl.pricing_type === "PREMIUM" || Boolean(tpl.is_luxury);
+    const isUnlocked = Boolean(user?.is_premium || user?.role === "ADMIN");
+
+    if (isPro && !isUnlocked) {
+      openPremiumCheckout("premium_monthly", () => {
+        handleSelectActiveTemplate(tpl);
+      });
+      return;
+    }
+
     localStorage.setItem("selected_template_id", tpl.id);
     localStorage.setItem("last_used_template_id", tpl.id);
     localStorage.setItem("last_used_template_name", tpl.name);
@@ -762,7 +773,9 @@ export const TemplateGallery: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 sm:gap-6">
             {displayedTemplates.map((tpl) => {
               const isFav = Boolean(favoritesMap[tpl.id]);
-              const isPremium = tpl.pricing_type === "PREMIUM";
+              const isPremium = tpl.pricing_type === "PREMIUM" || Boolean(tpl.is_luxury);
+              const isUnlocked = Boolean(user?.is_premium || user?.role === "ADMIN");
+              const requiresPayment = isPremium && !isUnlocked;
 
               return (
                 <div
@@ -817,9 +830,21 @@ export const TemplateGallery: React.FC = () => {
                           e.stopPropagation();
                           handleSelectActiveTemplate(tpl);
                         }}
-                        className="px-3 py-1.5 bg-[#F01472] hover:bg-[#C80E5A] text-white rounded-full text-[11px] font-[450] flex items-center gap-1 shadow-md transition cursor-pointer"
+                        className={`px-3 py-1.5 text-white rounded-full text-[11px] font-[450] flex items-center gap-1 shadow-md transition cursor-pointer ${
+                          requiresPayment
+                            ? "bg-gradient-to-r from-amber-500 to-rose-600 hover:brightness-105"
+                            : "bg-[#F01472] hover:bg-[#C80E5A]"
+                        }`}
                       >
-                        Create My Profile <ArrowRight size={12} />
+                        {requiresPayment ? (
+                          <>
+                            <Crown size={12} /> Unlock PRO
+                          </>
+                        ) : (
+                          <>
+                            Create My Profile <ArrowRight size={12} />
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -838,9 +863,21 @@ export const TemplateGallery: React.FC = () => {
                         e.stopPropagation();
                         handleSelectActiveTemplate(tpl);
                       }}
-                      className="w-full py-2 rounded-full bg-[#F01472] hover:bg-[#C80E5A] text-white text-xs font-[500] transition flex items-center justify-center gap-1 cursor-pointer shadow-xs active:scale-[0.98]"
+                      className={`w-full py-2 rounded-full text-white text-xs font-[500] transition flex items-center justify-center gap-1 cursor-pointer shadow-xs active:scale-[0.98] ${
+                        requiresPayment
+                          ? "bg-gradient-to-r from-amber-500 to-rose-600 hover:brightness-105 shadow-amber-500/20"
+                          : "bg-[#F01472] hover:bg-[#C80E5A]"
+                      }`}
                     >
-                      Create My Profile <ChevronRight size={12} />
+                      {requiresPayment ? (
+                        <>
+                          <Crown size={13} /> Unlock PRO (30 Days Free)
+                        </>
+                      ) : (
+                        <>
+                          Create My Profile <ChevronRight size={12} />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

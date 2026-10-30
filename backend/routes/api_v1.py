@@ -20,6 +20,7 @@ from backend.routes.admin_notifications import router as admin_notifications_rou
 from backend.routes.templates import router as templates_router
 from backend.routes.admin_templates import router as admin_templates_router
 from backend.routes.user_analytics import router as user_analytics_router
+from backend.routes.payments import router as payments_router
 
 from backend.routes.transliterate import router as transliterate_router
 
@@ -30,6 +31,7 @@ api_v1_router.include_router(transliterate_router)
 
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_analytics_router)
+api_v1_router.include_router(payments_router)
 api_v1_router.include_router(admin_router)
 api_v1_router.include_router(admin_users_router)
 api_v1_router.include_router(admin_profiles_router)
@@ -48,5 +50,3 @@ api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(public_profile_router)
 api_v1_router.include_router(captcha_router)
 api_v1_router.include_router(gdpr_router)
-
-

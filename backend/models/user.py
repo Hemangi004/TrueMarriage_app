@@ -32,13 +32,20 @@ class User(Base):
     is_email_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    is_phone_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # Future Mobile Authentication Support
     phone: Mapped[Optional[str]] = mapped_column(
         String(20), unique=True, index=True, nullable=True
     )
-    is_phone_verified: Mapped[bool] = mapped_column(
+    # Premium Membership & Subscriptions
+    is_premium: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
+    )
+    premium_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     # Timestamps

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, LogOut, ChevronDown, ChevronRight, Edit3 } from 'lucide-react';
+import { User, LogOut, ChevronDown, ChevronRight, Edit3, Crown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useBiodata } from '../../context/BiodataContext';
 import { EditProfileModal } from '../profile/EditProfileModal';
@@ -24,7 +24,7 @@ export const UserPillDropdown: React.FC<UserPillDropdownProps> = ({
   onOpenMyProfile,
   onLogout,
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, openPremiumCheckout, openManageSubscription } = useAuth();
   const { formData } = useBiodata();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -244,6 +244,99 @@ export const UserPillDropdown: React.FC<UserPillDropdownProps> = ({
                 </div>
                 <span>Edit Profile</span>
               </button>
+
+              {/* Option B: Upgrade to Premium / Active Pro Badge */}
+              {user?.is_premium ? (
+                (() => {
+                  const isCancelled = Boolean(
+                    user?.is_subscription_cancelled || user?.subscription_status === 'cancelled'
+                  );
+                  const expiryFormatted = user?.premium_until
+                    ? new Date(user.premium_until).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : '';
+
+                  return (
+                    <div className="space-y-1">
+                      {isCancelled ? (
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50/90 border border-amber-200">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+                              <Crown size={13} className="fill-current" />
+                            </div>
+                            <span className="truncate">PRO Access</span>
+                          </div>
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 tracking-wider shrink-0">
+                            {expiryFormatted ? `ENDS ${expiryFormatted.toUpperCase()}` : 'CANCELLED'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-2xs">
+                              <Crown size={13} className="fill-current" />
+                            </div>
+                            <span>Premium Member</span>
+                          </div>
+                          <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 tracking-wider">
+                            PRO
+                          </span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOpen(false);
+                          openManageSubscription();
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer text-left group"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {isCancelled ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              <span>Renewal Cancelled</span>
+                            </>
+                          ) : (
+                            <span>Manage Subscription</span>
+                          )}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold group-hover:underline ${
+                            isCancelled ? 'text-emerald-600' : 'text-[#F01472]'
+                          }`}
+                        >
+                          {isCancelled ? 'Reactivate →' : 'View / Cancel →'}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })()
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    openPremiumCheckout('premium_monthly');
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 bg-gradient-to-r from-rose-50 via-pink-50 to-amber-50 hover:from-rose-100 hover:to-amber-100 border border-rose-200/90 transition-all cursor-pointer text-left group shadow-2xs hover:shadow-xs active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#F01472] to-amber-500 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                      <Crown size={13} className="fill-current" />
+                    </div>
+                    <span className="bg-gradient-to-r from-[#F01472] to-rose-700 bg-clip-text text-transparent font-extrabold">
+                      Upgrade to Premium
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#F01472] to-[#e11d48] text-white shadow-2xs">
+                    PRO
+                  </span>
+                </button>
+              )}
 
               {/* Separator */}
               <div className="my-1 border-t border-slate-100" />

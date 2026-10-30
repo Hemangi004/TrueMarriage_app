@@ -77,13 +77,34 @@ _MOCK_ORDERS = [
 ]
 
 @router.get("/orders")
-def get_admin_orders(current_admin: User = Depends(require_admin)):
+def get_admin_orders(
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
     """Returns order history and transactions for packages and template downloads."""
-    total_sales = sum(o["amount"] for o in _MOCK_ORDERS if o["status"] == "COMPLETED")
+    from backend.models.payment import PaymentOrder
+    db_orders = db.query(PaymentOrder).order_by(PaymentOrder.created_at.desc()).all()
+    live_orders = []
+    for o in db_orders:
+        u_name = o.user.full_name if o.user else "Valued Member"
+        u_email = o.user.email if o.user else "member@truemarriage.in"
+        live_orders.append({
+            "id": o.id,
+            "orderId": o.razorpay_order_id,
+            "customer": u_name,
+            "email": u_email,
+            "plan": o.plan_name,
+            "amount": o.amount,
+            "currency": o.currency,
+            "status": o.status,
+            "date": o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
+        })
+    all_orders = live_orders + _MOCK_ORDERS
+    total_sales = sum(o["amount"] for o in all_orders if o["status"] in ("COMPLETED", "PAID", "SUCCESS"))
     return {
         "success": True,
-        "orders": _MOCK_ORDERS,
-        "totalOrders": len(_MOCK_ORDERS),
+        "orders": all_orders,
+        "totalOrders": len(all_orders),
         "totalSales": total_sales,
         "currency": "INR"
     }
@@ -129,13 +150,31 @@ _MOCK_PAYMENTS = [
 ]
 
 @router.get("/payments")
-def get_admin_payments(current_admin: User = Depends(require_admin)):
+def get_admin_payments(
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
     """Returns payment gateway transaction records and provider stats."""
+    from backend.models.payment import PaymentOrder
+    db_orders = db.query(PaymentOrder).order_by(PaymentOrder.created_at.desc()).all()
+    live_payments = []
+    for o in db_orders:
+        live_payments.append({
+            "id": o.id,
+            "orderId": o.razorpay_order_id,
+            "gateway": "Razorpay",
+            "method": o.payment_method or "UPI / Online",
+            "amount": o.amount,
+            "status": "SUCCESS" if o.status in ("COMPLETED", "PAID") else o.status,
+            "txnHash": o.razorpay_payment_id or "pending",
+            "timestamp": o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
+        })
+    all_payments = live_payments + _MOCK_PAYMENTS
     return {
         "success": True,
-        "payments": _MOCK_PAYMENTS,
+        "payments": all_payments,
         "gatewayHealth": [
-            {"name": "Razorpay (Primary)", "status": "OPERATIONAL", "successRate": 99.4},
+            {"name": "Razorpay (Sandbox / Active)", "status": "OPERATIONAL", "successRate": 100.0},
             {"name": "Stripe (International)", "status": "OPERATIONAL", "successRate": 98.8},
             {"name": "PhonePe Direct UPI", "status": "OPERATIONAL", "successRate": 99.1},
         ]

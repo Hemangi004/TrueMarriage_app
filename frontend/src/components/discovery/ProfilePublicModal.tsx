@@ -102,7 +102,7 @@ export const ProfilePublicModal: React.FC<ProfilePublicModalProps> = ({
     updateFormData,
     openCropper,
   } = useBiodata();
-  const { user, logout, isAuthenticated, openLogin } = useAuth();
+  const { user, logout, isAuthenticated, openLogin, openPremiumCheckout } = useAuth();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -314,6 +314,12 @@ export const ProfilePublicModal: React.FC<ProfilePublicModalProps> = ({
     '';
   const displayOwnPhone = ownPhone ? (ownPhone.startsWith('+') ? ownPhone : `+91 ${ownPhone}`) : 'Verified';
 
+  const isContactLocked = Boolean(
+    (profile as any)?.is_contact_locked ||
+    profile?.hideContactDetails ||
+    (profile as any)?.hide_contact_details
+  );
+
   const rawTargetPhone =
     profile?.contactTo ||
     profile?.contact_to ||
@@ -324,13 +330,14 @@ export const ProfilePublicModal: React.FC<ProfilePublicModalProps> = ({
     (profile as any)?.contactNumber ||
     '';
   const maskedPhoneDisplay = (() => {
+    if ((profile as any)?.masked_phone) return (profile as any).masked_phone;
     if (rawTargetPhone && rawTargetPhone.replace(/\D/g, '').length >= 6) {
       const digits = rawTargetPhone.replace(/\D/g, '');
       const prefix = digits.slice(0, 2);
       const suffix = digits.slice(-2);
       return `+91 ${prefix}•••• ••${suffix}`;
     }
-    return '';
+    return '+91 ••••• •••••';
   })();
 
   const fullPhoneToDisplay = (() => {
@@ -1169,11 +1176,32 @@ export const ProfilePublicModal: React.FC<ProfilePublicModalProps> = ({
                         <Check size={10} className="stroke-[3]" /> Verified
                       </span>
                     </div>
-                  ) : !rawTargetPhone ? (
-                    <span className="text-xs font-semibold text-gray-400 italic">
-                      Contact via Interest
-                    </span>
-                  ) : unhiddenPhone ? (
+                  ) : isContactLocked && !(user?.is_premium || user?.role === 'ADMIN' || unhiddenPhone) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (user?.is_premium || user?.role === 'ADMIN') {
+                          setUnhiddenPhone(true);
+                        } else {
+                          import('../../services/adminUserAnalysisService')
+                            .then((mod) => mod.recordPremiumClickApi())
+                            .catch(() => {});
+                          openPremiumCheckout('premium_monthly', () => {
+                            setUnhiddenPhone(true);
+                          });
+                        }
+                      }}
+                      className="group/contact flex items-center gap-1.5 py-0.5 px-2 rounded-lg bg-gradient-to-r from-amber-50 to-rose-50 hover:from-amber-100 hover:to-rose-100 border border-amber-200/90 hover:border-rose-300 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95"
+                      title="Upgrade to Premium to unhide verified contact details"
+                    >
+                      <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
+                        {maskedPhoneDisplay}
+                      </span>
+                      <span className="inline-flex items-center justify-center p-1 rounded-md bg-gradient-to-r from-amber-500 to-[#F01472] text-white shadow-2xs group-hover/contact:scale-105 transition-all">
+                        <Lock size={11} className="stroke-[2.5]" />
+                      </span>
+                    </button>
+                  ) : rawTargetPhone ? (
                     <div className="flex items-center gap-2">
                       <a
                         href={`tel:${fullPhoneToDisplay.replace(/\s+/g, '')}`}
@@ -1193,24 +1221,9 @@ export const ProfilePublicModal: React.FC<ProfilePublicModalProps> = ({
                       </a>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUnhiddenPhone(true);
-                        import('../../services/adminUserAnalysisService')
-                          .then((mod) => mod.recordPremiumClickApi())
-                          .catch(() => {});
-                      }}
-                      className="group/contact flex items-center gap-1.5 py-0.5 px-2 rounded-lg bg-gradient-to-r from-amber-50 to-rose-50 hover:from-amber-100 hover:to-rose-100 border border-amber-200/90 hover:border-rose-300 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95"
-                      title="Click to unhide contact details"
-                    >
-                      <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
-                        {maskedPhoneDisplay}
-                      </span>
-                      <span className="inline-flex items-center justify-center p-1 rounded-md bg-gradient-to-r from-amber-500 to-[#F01472] text-white shadow-2xs group-hover/contact:scale-105 transition-all">
-                        <Lock size={11} className="stroke-[2.5]" />
-                      </span>
-                    </button>
+                    <span className="text-xs font-semibold text-gray-400 italic">
+                      Contact via Interest
+                    </span>
                   )}
                 </div>
                 {profile.fitness && (

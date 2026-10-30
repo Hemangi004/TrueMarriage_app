@@ -161,6 +161,10 @@ class UserResponse(BaseModel):
     access_token: Optional[str] = None
     has_profile: bool = False
     is_profile_completed: bool = False
+    is_premium: bool = False
+    premium_until: Optional[datetime] = None
+    is_subscription_cancelled: bool = False
+    subscription_status: Optional[str] = "none"
     profile_id: Optional[str] = None
     identities: List[AuthIdentityOutput] = []
 
