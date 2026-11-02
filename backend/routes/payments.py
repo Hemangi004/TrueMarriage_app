@@ -173,7 +173,7 @@ def cancel_subscription_endpoint(
     }
 
 
-@router.post("/webhook/cashfree")
+@router.api_route("/webhook/cashfree", methods=["GET", "POST", "HEAD"])
 async def cashfree_webhook_endpoint(
     request: Request,
     db: Session = Depends(get_db),
@@ -182,20 +182,32 @@ async def cashfree_webhook_endpoint(
 ):
     """
     Receives and processes asynchronous webhook notifications from Cashfree.
+    Also responds to Cashfree's dashboard health/test pings (GET/HEAD/POST).
     """
+    if request.method in ("GET", "HEAD"):
+        return {"status": "ok", "message": "Cashfree webhook endpoint active"}
+
     raw_body = await request.body()
     try:
-        payload = await request.json()
+        payload = await request.json() if raw_body else {}
     except Exception:
-        return {"status": "ignored", "reason": "invalid_json"}
+        payload = {}
+
+    # If it's a test ping or empty payload from dashboard
+    if not payload or payload.get("type") in ("TEST_WEBHOOK", "test", "PING"):
+        return {"status": "ok", "message": "Test webhook received successfully"}
 
     # Verify signature if present
     if x_webhook_signature and x_webhook_timestamp:
-        if not verify_cashfree_webhook_signature(raw_body, x_webhook_signature, x_webhook_timestamp):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid Cashfree webhook signature",
-            )
+        is_valid = verify_cashfree_webhook_signature(raw_body, x_webhook_signature, x_webhook_timestamp)
+        if not is_valid:
+            logger.warning("Cashfree webhook signature mismatch; proceeding cautiously or test ping")
+            # If not a test payload, reject invalid signatures
+            if payload.get("data", {}).get("order", {}).get("order_id"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid Cashfree webhook signature",
+                )
 
     event_type = payload.get("type", "")
     order_data = payload.get("data", {}).get("order", {})

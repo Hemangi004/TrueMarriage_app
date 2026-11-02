@@ -161,6 +161,16 @@ def init_db() -> None:
                         print("[INIT_DB] Added cashfree_signature column to payment_orders table.")
                     except Exception as err:
                         logger.warning(f"Could not add cashfree_signature: {err}")
+                if "razorpay_order_id" in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders MODIFY COLUMN razorpay_order_id VARCHAR(100) NULL DEFAULT NULL;"))
+                    except Exception:
+                        pass
+                if "razorpay_signature" in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders MODIFY COLUMN razorpay_signature VARCHAR(255) NULL DEFAULT NULL;"))
+                    except Exception:
+                        pass
                 conn.commit()
     except Exception as e:
         logger.warning(f"Could not auto-migrate payment_orders table: {e}")
