@@ -8,7 +8,7 @@ from backend.db.base import Base
 
 class PaymentOrder(Base):
     """
-    Stores payment orders created for Razorpay checkout, tracking transaction state
+    Stores payment orders created for Cashfree checkout, tracking transaction state
     from initialization through completion or failure.
     """
     __tablename__ = "payment_orders"
@@ -19,13 +19,16 @@ class PaymentOrder(Base):
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    razorpay_order_id: Mapped[str] = mapped_column(
+    cashfree_order_id: Mapped[str] = mapped_column(
         String(64), unique=True, index=True, nullable=False
     )
-    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(
+    payment_session_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
+    cashfree_payment_id: Mapped[Optional[str]] = mapped_column(
         String(64), unique=True, nullable=True, index=True
     )
-    razorpay_signature: Mapped[Optional[str]] = mapped_column(
+    cashfree_signature: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )
 
@@ -33,7 +36,7 @@ class PaymentOrder(Base):
         String(64), default="premium_monthly", nullable=False
     )
     plan_name: Mapped[str] = mapped_column(
-        String(128), default="Premium Biodata Pass", nullable=False
+        String(128), default="TrueMarriage PRO (30-Day Free Trial)", nullable=False
     )
     amount: Mapped[int] = mapped_column(
         Integer, nullable=False, default=299
@@ -59,6 +62,31 @@ class PaymentOrder(Base):
     )
 
     user = relationship("User", foreign_keys=[user_id])
+
+    # Backward compatibility properties for legacy code/references
+    @property
+    def razorpay_order_id(self) -> str:
+        return self.cashfree_order_id
+
+    @razorpay_order_id.setter
+    def razorpay_order_id(self, val: str):
+        self.cashfree_order_id = val
+
+    @property
+    def razorpay_payment_id(self) -> Optional[str]:
+        return self.cashfree_payment_id
+
+    @razorpay_payment_id.setter
+    def razorpay_payment_id(self, val: Optional[str]):
+        self.cashfree_payment_id = val
+
+    @property
+    def razorpay_signature(self) -> Optional[str]:
+        return self.cashfree_signature
+
+    @razorpay_signature.setter
+    def razorpay_signature(self, val: Optional[str]):
+        self.cashfree_signature = val
 
     __table_args__ = (
         Index("ix_payment_orders_user_status", "user_id", "status"),

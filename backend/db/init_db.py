@@ -124,6 +124,47 @@ def init_db() -> None:
     except Exception as e:
         logger.warning(f"Could not auto-migrate is_premium columns on users: {e}")
 
+    # Ensure Cashfree columns exist on payment_orders table
+    try:
+        import sqlalchemy as sa
+        inspector = inspect(engine)
+        if "payment_orders" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("payment_orders")]
+            with engine.connect() as conn:
+                if "cashfree_order_id" not in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders ADD COLUMN cashfree_order_id VARCHAR(64) NULL;"))
+                        if "razorpay_order_id" in columns:
+                            conn.execute(sa.text("UPDATE payment_orders SET cashfree_order_id = razorpay_order_id WHERE cashfree_order_id IS NULL;"))
+                        print("[INIT_DB] Added cashfree_order_id column to payment_orders table.")
+                    except Exception as err:
+                        logger.warning(f"Could not add cashfree_order_id: {err}")
+                if "payment_session_id" not in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders ADD COLUMN payment_session_id VARCHAR(255) NULL;"))
+                        print("[INIT_DB] Added payment_session_id column to payment_orders table.")
+                    except Exception as err:
+                        logger.warning(f"Could not add payment_session_id: {err}")
+                if "cashfree_payment_id" not in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders ADD COLUMN cashfree_payment_id VARCHAR(64) NULL;"))
+                        if "razorpay_payment_id" in columns:
+                            conn.execute(sa.text("UPDATE payment_orders SET cashfree_payment_id = razorpay_payment_id WHERE cashfree_payment_id IS NULL;"))
+                        print("[INIT_DB] Added cashfree_payment_id column to payment_orders table.")
+                    except Exception as err:
+                        logger.warning(f"Could not add cashfree_payment_id: {err}")
+                if "cashfree_signature" not in columns:
+                    try:
+                        conn.execute(sa.text("ALTER TABLE payment_orders ADD COLUMN cashfree_signature VARCHAR(255) NULL;"))
+                        if "razorpay_signature" in columns:
+                            conn.execute(sa.text("UPDATE payment_orders SET cashfree_signature = razorpay_signature WHERE cashfree_signature IS NULL;"))
+                        print("[INIT_DB] Added cashfree_signature column to payment_orders table.")
+                    except Exception as err:
+                        logger.warning(f"Could not add cashfree_signature: {err}")
+                conn.commit()
+    except Exception as e:
+        logger.warning(f"Could not auto-migrate payment_orders table: {e}")
+
     # Verify tables
     inspector = inspect(engine)
     tables = inspector.get_table_names()
@@ -334,14 +375,6 @@ def _seed_default_templates() -> None:
         print(f"[INIT_DB ERROR] Failed to seed/sync templates: {e}")
     finally:
         db.close()
-
-    # Ensure Razorpay test accounts are seeded and ready
-    try:
-        from backend.scripts.seed_razorpay_test_account import seed_test_accounts
-        seed_test_accounts()
-    except Exception as e:
-        print(f"[INIT_DB WARNING] Could not seed test accounts: {e}")
-
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from typing import Optional
-from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
@@ -8,14 +8,15 @@ from backend.models.user import User
 from backend.dependencies.auth import get_current_user
 from backend.services.payment_service import (
     PLANS,
-    create_razorpay_order,
-    verify_razorpay_payment,
+    create_cashfree_order,
+    verify_cashfree_payment,
+    verify_cashfree_webhook_signature,
     get_user_subscription_status,
     cancel_user_subscription,
     start_free_trial,
 )
 
-router = APIRouter(prefix="/payments", tags=["Razorpay Payments"])
+router = APIRouter(prefix="/payments", tags=["Cashfree Payments"])
 
 
 class CreateOrderRequest(BaseModel):
@@ -23,15 +24,18 @@ class CreateOrderRequest(BaseModel):
 
 
 class VerifyPaymentRequest(BaseModel):
+    order_id: Optional[str] = None
+    cashfree_order_id: Optional[str] = None
+    # Backward compatibility aliases
     razorpay_order_id: Optional[str] = None
-    razorpay_subscription_id: Optional[str] = None
-    razorpay_payment_id: str
-    razorpay_signature: str
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
+    signature: Optional[str] = None
 
 
 @router.get("/plans")
 def get_available_plans():
-    """Returns available pricing plans and details for Razorpay checkout."""
+    """Returns available pricing plans and details for Cashfree checkout."""
     return {
         "success": True,
         "plans": PLANS,
@@ -66,11 +70,11 @@ def create_order_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    Creates a new Razorpay subscription / order and returns client checkout parameters.
+    Creates a new Cashfree checkout order and returns payment_session_id.
     Requires authenticated user session.
     """
     try:
-        order_details = create_razorpay_order(
+        order_details = create_cashfree_order(
             db=db,
             user=current_user,
             plan_id=payload.plan_id,
@@ -93,15 +97,25 @@ def verify_payment_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    Cryptographically verifies Razorpay payment/subscription signature and upgrades user to Premium.
+    Verifies payment with Cashfree API and upgrades user to TrueMarriage PRO.
     """
-    success, message, order = verify_razorpay_payment(
+    order_lookup_id = (
+        payload.order_id
+        or payload.cashfree_order_id
+        or payload.razorpay_order_id
+    )
+
+    if not order_lookup_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "message": "order_id is required for verification"},
+        )
+
+    success, message, order = verify_cashfree_payment(
         db=db,
         user=current_user,
-        razorpay_order_id=payload.razorpay_order_id,
-        razorpay_subscription_id=payload.razorpay_subscription_id,
-        razorpay_payment_id=payload.razorpay_payment_id,
-        razorpay_signature=payload.razorpay_signature,
+        order_id=order_lookup_id,
+        signature=payload.signature or payload.razorpay_signature,
     )
 
     if not success:
@@ -113,6 +127,7 @@ def verify_payment_endpoint(
     return {
         "success": True,
         "message": message,
+        "order_id": order.cashfree_order_id if order else order_lookup_id,
         "plan_id": order.plan_id if order else "premium_monthly",
         "is_premium": current_user.is_premium,
         "premium_until": current_user.premium_until.isoformat() if current_user.premium_until else None,
@@ -140,8 +155,8 @@ def cancel_subscription_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    Cancels recurring auto-renewal with Razorpay for the authenticated user.
-    The user retains active PRO benefits until current period expires.
+    Cancels recurring auto-renewal for the authenticated user.
+    The user retains active PRO benefits until the current period expires.
     """
     success, message = cancel_user_subscription(db=db, user=current_user)
     if not success:
@@ -157,3 +172,40 @@ def cancel_subscription_endpoint(
         "subscription": updated_status,
     }
 
+
+@router.post("/webhook/cashfree")
+async def cashfree_webhook_endpoint(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_webhook_signature: Optional[str] = Header(None, alias="x-webhook-signature"),
+    x_webhook_timestamp: Optional[str] = Header(None, alias="x-webhook-timestamp"),
+):
+    """
+    Receives and processes asynchronous webhook notifications from Cashfree.
+    """
+    raw_body = await request.body()
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"status": "ignored", "reason": "invalid_json"}
+
+    # Verify signature if present
+    if x_webhook_signature and x_webhook_timestamp:
+        if not verify_cashfree_webhook_signature(raw_body, x_webhook_signature, x_webhook_timestamp):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Cashfree webhook signature",
+            )
+
+    event_type = payload.get("type", "")
+    order_data = payload.get("data", {}).get("order", {})
+    order_id = order_data.get("order_id")
+
+    if event_type in ("PAYMENT_SUCCESS_WEBHOOK", "ORDER_PAID") and order_id:
+        from backend.models.payment import PaymentOrder
+        from sqlalchemy import select
+        order = db.scalar(select(PaymentOrder).where(PaymentOrder.cashfree_order_id == order_id))
+        if order and order.user:
+            verify_cashfree_payment(db=db, user=order.user, order_id=order_id)
+
+    return {"status": "ok", "received": True}

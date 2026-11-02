@@ -90,7 +90,7 @@ def get_admin_orders(
         u_email = o.user.email if o.user else "member@truemarriage.in"
         live_orders.append({
             "id": o.id,
-            "orderId": o.razorpay_order_id,
+            "orderId": o.cashfree_order_id,
             "customer": u_name,
             "email": u_email,
             "plan": o.plan_name,
@@ -143,10 +143,10 @@ def get_admin_revenue(current_admin: User = Depends(require_admin)):
 # 4. PAYMENTS & GATEWAYS
 # ──────────────────────────────────────────────────────────────────────────────
 _MOCK_PAYMENTS = [
-    {"id": "PAY-88391", "orderId": "ORD-94821", "gateway": "Razorpay", "method": "UPI / PhonePe", "amount": 499, "status": "SUCCESS", "txnHash": "pay_P1o9842xa9k1", "timestamp": "2026-08-12 14:22:10"},
+    {"id": "PAY-88391", "orderId": "ORD-94821", "gateway": "Cashfree", "method": "UPI / PhonePe", "amount": 499, "status": "SUCCESS", "txnHash": "pay_P1o9842xa9k1", "timestamp": "2026-08-12 14:22:10"},
     {"id": "PAY-88390", "orderId": "ORD-94820", "gateway": "Stripe", "method": "Credit Card (Visa)", "amount": 299, "status": "SUCCESS", "txnHash": "ch_3N82x9Lka901", "timestamp": "2026-08-12 13:10:05"},
-    {"id": "PAY-88389", "orderId": "ORD-94819", "gateway": "Razorpay", "method": "Netbanking (HDFC)", "amount": 1499, "status": "PENDING", "txnHash": "pay_P1o7712xa8a2", "timestamp": "2026-08-12 11:45:33"},
-    {"id": "PAY-88388", "orderId": "ORD-94818", "gateway": "Razorpay", "method": "Google Pay", "amount": 499, "status": "FAILED", "txnHash": "pay_P1o5541xa7b4", "timestamp": "2026-08-11 18:30:12"},
+    {"id": "PAY-88389", "orderId": "ORD-94819", "gateway": "Cashfree", "method": "Netbanking (HDFC)", "amount": 1499, "status": "PENDING", "txnHash": "pay_P1o7712xa8a2", "timestamp": "2026-08-12 11:45:33"},
+    {"id": "PAY-88388", "orderId": "ORD-94818", "gateway": "Cashfree", "method": "Google Pay", "amount": 499, "status": "FAILED", "txnHash": "pay_P1o5541xa7b4", "timestamp": "2026-08-11 18:30:12"},
 ]
 
 @router.get("/payments")
@@ -161,12 +161,12 @@ def get_admin_payments(
     for o in db_orders:
         live_payments.append({
             "id": o.id,
-            "orderId": o.razorpay_order_id,
-            "gateway": "Razorpay",
+            "orderId": o.cashfree_order_id,
+            "gateway": "Cashfree",
             "method": o.payment_method or "UPI / Online",
             "amount": o.amount,
             "status": "SUCCESS" if o.status in ("COMPLETED", "PAID") else o.status,
-            "txnHash": o.razorpay_payment_id or "pending",
+            "txnHash": o.cashfree_payment_id or "pending",
             "timestamp": o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
         })
     all_payments = live_payments + _MOCK_PAYMENTS
@@ -174,7 +174,7 @@ def get_admin_payments(
         "success": True,
         "payments": all_payments,
         "gatewayHealth": [
-            {"name": "Razorpay (Sandbox / Active)", "status": "OPERATIONAL", "successRate": 100.0},
+            {"name": "Cashfree PG (Active)", "status": "OPERATIONAL", "successRate": 100.0},
             {"name": "Stripe (International)", "status": "OPERATIONAL", "successRate": 98.8},
             {"name": "PhonePe Direct UPI", "status": "OPERATIONAL", "successRate": 99.1},
         ]

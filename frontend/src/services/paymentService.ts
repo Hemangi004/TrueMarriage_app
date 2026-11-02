@@ -2,17 +2,25 @@ import { API_V1_BASE_URL } from '../config/api';
 
 declare global {
   interface Window {
+    Cashfree?: (options: { mode: 'sandbox' | 'production' }) => {
+      checkout: (options: {
+        paymentSessionId: string;
+        redirectTarget?: '_self' | '_blank' | '_top' | '_modal';
+        returnUrl?: string;
+      }) => Promise<any>;
+    };
+    // Kept for backward compatibility if any legacy scripts attach
     Razorpay?: any;
   }
 }
 
-export interface RazorpayOrderResponse {
+export interface CashfreeOrderResponse {
   success: boolean;
   order: {
-    key_id: string;
-    order_id?: string;
-    subscription_id?: string;
-    is_subscription?: boolean;
+    order_id: string;
+    payment_session_id: string;
+    environment: 'sandbox' | 'production';
+    app_id: string;
     amount: number;
     amount_due_today?: number;
     trial_days?: number;
@@ -25,34 +33,48 @@ export interface RazorpayOrderResponse {
     user_name: string;
     user_email: string;
     user_phone: string;
+    is_subscription?: boolean;
   };
 }
 
+// Backward compatibility alias for RazorpayOrderResponse
+export type RazorpayOrderResponse = CashfreeOrderResponse;
+
 export interface VerifyPaymentPayload {
+  order_id?: string;
+  signature?: string;
+  cashfree_order_id?: string;
   razorpay_order_id?: string;
-  razorpay_subscription_id?: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
 }
 
 /**
- * Loads Razorpay Standard Checkout SDK if not already in window
+ * Loads Cashfree Web SDK v3 if not already in window
  */
-export const loadRazorpayScript = (): Promise<boolean> => {
+export const loadCashfreeScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
     if (typeof window === 'undefined') {
       return resolve(false);
     }
-    if (window.Razorpay) {
+    if (window.Cashfree) {
       return resolve(true);
     }
 
+    // Check if script element already exists
+    const existing = document.querySelector('script[src="https://sdk.cashfree.com/js/v3/cashfree.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+
     const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
     script.async = true;
     script.onload = () => resolve(true);
     script.onerror = () => {
-      console.error('Failed to load Razorpay Checkout SDK');
+      console.error('Failed to load Cashfree Payment Gateway SDK');
       resolve(false);
     };
     document.body.appendChild(script);
@@ -60,11 +82,16 @@ export const loadRazorpayScript = (): Promise<boolean> => {
 };
 
 /**
- * Creates a payment order or recurring subscription on backend
+ * Backward compatible alias for loading script
+ */
+export const loadRazorpayScript = loadCashfreeScript;
+
+/**
+ * Creates a payment order on backend with Cashfree
  */
 export const createPaymentOrderApi = async (
   planId: string = 'premium_monthly'
-): Promise<RazorpayOrderResponse['order']> => {
+): Promise<CashfreeOrderResponse['order']> => {
   const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -82,14 +109,14 @@ export const createPaymentOrderApi = async (
 
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data?.detail?.message || data?.message || 'Failed to initialize subscription');
+    throw new Error(data?.detail?.message || data?.message || 'Failed to initialize payment');
   }
 
   return data.order;
 };
 
 /**
- * Verifies payment / subscription signature with backend
+ * Verifies payment status with backend after Cashfree checkout
  */
 export const verifyPaymentApi = async (payload: VerifyPaymentPayload): Promise<any> => {
   const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
@@ -116,17 +143,17 @@ export const verifyPaymentApi = async (payload: VerifyPaymentPayload): Promise<a
 };
 
 /**
- * Opens Razorpay Sandbox checkout modal for monthly subscriptions
+ * Opens Cashfree Checkout modal or handles drop-in redirect
  */
-export const launchRazorpayCheckout = async (options: {
+export const launchCashfreeCheckout = async (options: {
   planId?: string;
   onSuccess?: (paymentResult: any) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }) => {
-  const isLoaded = await loadRazorpayScript();
-  if (!isLoaded) {
-    alert('Unable to load Razorpay payment gateway. Please check your internet connection.');
+  const isLoaded = await loadCashfreeScript();
+  if (!isLoaded || typeof window.Cashfree !== 'function') {
+    alert('Unable to load Cashfree payment gateway. Please check your internet connection.');
     if (options.onError) options.onError(new Error('SDK load error'));
     return;
   }
@@ -134,67 +161,51 @@ export const launchRazorpayCheckout = async (options: {
   try {
     const order = await createPaymentOrderApi(options.planId || 'premium_monthly');
 
-    const rzpOptions: any = {
-      key: order.key_id,
-      name: 'TrueMarriage Matrimony',
-      description: order.plan_name,
-      image: '/logo.png',
-      prefill: {
-        name: order.user_name,
-        email: order.user_email,
-        contact: order.user_phone,
-      },
-      theme: {
-        color: '#F01472',
-      },
-      modal: {
-        ondismiss: () => {
-          if (options.onClose) options.onClose();
-        },
-      },
-      handler: async (response: {
-        razorpay_payment_id: string;
-        razorpay_order_id?: string;
-        razorpay_subscription_id?: string;
-        razorpay_signature: string;
-      }) => {
-        try {
-          const verifyResult = await verifyPaymentApi({
-            razorpay_order_id: response.razorpay_order_id || (order.is_subscription ? undefined : order.order_id),
-            razorpay_subscription_id: response.razorpay_subscription_id || (order.is_subscription ? (order.subscription_id || order.order_id) : undefined),
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          });
-          if (options.onSuccess) options.onSuccess(verifyResult);
-        } catch (verErr) {
-          console.error('Signature verification error:', verErr);
-          alert('Payment verification failed. Please contact support if money was debited.');
-          if (options.onError) options.onError(verErr);
-        }
-      },
-    };
-
-    if (order.is_subscription && order.subscription_id) {
-      rzpOptions.subscription_id = order.subscription_id;
-    } else {
-      rzpOptions.order_id = order.order_id;
-      rzpOptions.amount = order.amount;
-      rzpOptions.currency = order.currency;
+    if (!order.payment_session_id) {
+      throw new Error('Payment session could not be established with Cashfree.');
     }
 
-    const rzp = new window.Razorpay(rzpOptions);
-    rzp.on('payment.failed', function (resp: any) {
-      console.warn('Payment failed:', resp.error);
-      alert(`Payment Failed: ${resp.error?.description || 'Transaction declined'}`);
-      if (options.onError) options.onError(resp.error);
+    const cashfree = window.Cashfree({
+      mode: order.environment === 'production' ? 'production' : 'sandbox',
     });
-    rzp.open();
+
+    cashfree
+      .checkout({
+        paymentSessionId: order.payment_session_id,
+        redirectTarget: '_modal',
+      })
+      .then(async (result: any) => {
+        if (result?.error) {
+          console.warn('Cashfree payment dismissed or error:', result.error);
+          if (options.onClose) options.onClose();
+          if (options.onError) options.onError(result.error);
+          return;
+        }
+
+        // Cashfree modal completed or closed -> verify order status with backend
+        try {
+          const verifyResult = await verifyPaymentApi({
+            order_id: order.order_id,
+          });
+          if (options.onSuccess) options.onSuccess(verifyResult);
+        } catch (verErr: any) {
+          console.warn('Payment verification checking result:', verErr);
+          if (options.onClose) options.onClose();
+        }
+      })
+      .catch((err: any) => {
+        console.error('Cashfree checkout modal error:', err);
+        if (options.onError) options.onError(err);
+      });
   } catch (err: any) {
     console.error('Payment checkout initiation failed:', err);
     alert(err?.message || 'Could not initiate payment. Please make sure you are logged in.');
     if (options.onError) options.onError(err);
   }
 };
+
+// Backward compatibility alias for launchRazorpayCheckout
+export const launchRazorpayCheckout = launchCashfreeCheckout;
 
 export interface SubscriptionStatus {
   is_premium: boolean;
@@ -278,7 +289,11 @@ export const getSubscriptionStatusApi = async (): Promise<SubscriptionStatus> =>
 /**
  * Cancels recurring monthly auto-renewal for the user's subscription
  */
-export const cancelSubscriptionApi = async (): Promise<{ success: boolean; message: string; subscription: SubscriptionStatus }> => {
+export const cancelSubscriptionApi = async (): Promise<{
+  success: boolean;
+  message: string;
+  subscription: SubscriptionStatus;
+}> => {
   const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -300,4 +315,3 @@ export const cancelSubscriptionApi = async (): Promise<{ success: boolean; messa
 
   return data;
 };
-

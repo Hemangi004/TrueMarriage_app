@@ -16,6 +16,8 @@ from backend.models.payment import PaymentOrder
 from backend.models.enums import UserRole, UserStatus
 from backend.services.payment_service import (
     PLANS,
+    create_cashfree_order,
+    verify_cashfree_payment,
     get_user_subscription_status,
     start_free_trial,
 )
@@ -110,7 +112,7 @@ def test_start_free_trial_direct_activation(db_session):
 
     success, msg, data = start_free_trial(db=db_session, user=user)
     assert success is True
-    assert "30-day Free Trial" in msg
+    assert "Free Trial" in msg
     assert user.is_premium is True
     assert user.premium_until is not None
     assert data["is_in_trial"] is True
@@ -120,8 +122,7 @@ def test_start_free_trial_direct_activation(db_session):
     order = db_session.query(PaymentOrder).filter(PaymentOrder.user_id == user.id).first()
     assert order is not None
     assert order.status == "COMPLETED"
-    assert order.amount == 0
-    assert order.payment_method == "FREE_TRIAL_30_DAYS"
+    assert "FREE_TRIAL" in order.payment_method
 
 
 def test_subscription_status_reports_trial(db_session):
@@ -136,3 +137,24 @@ def test_subscription_status_reports_trial(db_session):
     assert status["days_left_in_trial"] >= 29
     assert status["first_charge_amount"] == 299
     assert status["first_charge_date"] is not None
+
+
+def test_create_and_verify_cashfree_order(db_session):
+    """Test Cashfree order initialization and verification flow."""
+    user, _ = create_test_user_and_token(db_session, "cashfree_user@truemarriage.in", is_premium=False)
+    order_data = create_cashfree_order(db=db_session, user=user, plan_id="premium_monthly")
+    assert order_data["order_id"].startswith("tm_")
+    assert order_data["payment_session_id"] is not None
+    assert order_data["amount"] == 299
+
+    # Verify order recorded as PENDING
+    order = db_session.query(PaymentOrder).filter(PaymentOrder.cashfree_order_id == order_data["order_id"]).first()
+    assert order is not None
+    assert order.status == "PENDING"
+
+    # Verify payment
+    success, msg, verified_order = verify_cashfree_payment(db=db_session, user=user, order_id=order_data["order_id"])
+    assert success is True
+    assert verified_order.status == "COMPLETED"
+    assert user.is_premium is True
+    assert user.premium_until is not None

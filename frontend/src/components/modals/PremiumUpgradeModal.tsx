@@ -12,7 +12,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
-import { launchRazorpayCheckout } from '../../services/paymentService';
+import { launchCashfreeCheckout } from '../../services/paymentService';
 
 const PREMIUM_BENEFITS = [
   {
@@ -95,7 +95,7 @@ export const PremiumUpgradeModal: React.FC<PremiumUpgradeModalProps> = ({
 
   const handleProceedToPayment = () => {
     setIsProcessing(true);
-    launchRazorpayCheckout({
+    launchCashfreeCheckout({
       planId: selectedPlanId,
       onSuccess: async () => {
         setIsProcessing(false);
@@ -105,7 +105,7 @@ export const PremiumUpgradeModal: React.FC<PremiumUpgradeModalProps> = ({
             spread: 70,
             origin: { y: 0.6 },
           });
-        } catch {}
+        } catch { }
         showAuthToast('🎉 Payment Successful! TrueMarriage PRO has been activated.');
         await refreshUser();
         if (onSuccess) onSuccess();

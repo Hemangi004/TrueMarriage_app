@@ -1,11 +1,7 @@
 import os
 from typing import List, Optional
-from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
-
-_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-_BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -91,11 +87,8 @@ class Settings(BaseSettings):
     OTP_LENGTH: int = Field(default=6, alias="OTP_LENGTH")
     OTP_MAX_ATTEMPTS: int = Field(default=5, alias="OTP_MAX_ATTEMPTS")
     OTP_RESEND_COOLDOWN_SECONDS: int = Field(default=60, alias="OTP_RESEND_COOLDOWN_SECONDS")
-    OTP_MAX_ATTEMPTS: int = Field(default=5, alias="OTP_MAX_ATTEMPTS")
-    OTP_LENGTH: int = Field(default=6, alias="OTP_LENGTH")
 
     # SMTP Real Email Configuration (Phase 4)
-    # Accepts both SMTP_USERNAME (from .env) and SMTP_USER (legacy)
     SMTP_HOST: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     SMTP_PORT: int = Field(default=465, alias="SMTP_PORT")
     SMTP_USERNAME: Optional[str] = Field(default=None, alias="SMTP_USERNAME")
@@ -103,11 +96,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = Field(default=None, alias="SMTP_PASSWORD")
     SMTP_FROM_EMAIL: str = Field(default="no-reply@truemarriagematrimony.com", alias="SMTP_FROM_EMAIL")
     SMTP_FROM_NAME: str = Field(default="TrueMarriage Matrimony", alias="SMTP_FROM_NAME")
-    # Legacy aliases (accepted but mapped to new names)
     EMAILS_FROM_EMAIL: Optional[str] = Field(default=None, alias="EMAILS_FROM_EMAIL")
     EMAILS_FROM_NAME: Optional[str] = Field(default=None, alias="EMAILS_FROM_NAME")
 
-    # SMS Gateway Configuration (Phase 2 Postponed)
+    # SMS Gateway Configuration
     FAST2SMS_API_KEY: Optional[str] = Field(default=None, alias="FAST2SMS_API_KEY")
     TWILIO_ACCOUNT_SID: Optional[str] = Field(default=None, alias="TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN: Optional[str] = Field(default=None, alias="TWILIO_AUTH_TOKEN")
@@ -125,13 +117,14 @@ class Settings(BaseSettings):
         alias="GOOGLE_REDIRECT_URI"
     )
     GOOGLE_CLIENT_REDIRECT_URI: Optional[str] = Field(default=None, alias="GOOGLE_CLIENT_REDIRECT_URI")
-    GOOGLE_ANDROID_CLIENT_ID: Optional[str] = Field(default=None, alias="GOOGLE_ANDROID_CLIENT_ID")
     FRONTEND_URL: str = Field(default="http://localhost:5173", alias="FRONTEND_URL")
 
-    # Razorpay Gateway Configuration
-    RAZORPAY_KEY_ID: str = Field(default="rzp_test_ThWrwwrKMHTFrN", alias="RAZORPAY_KEY_ID")
-    RAZORPAY_KEY_SECRET: str = Field(default="kpTkv63ms7jd6lw87YmHqZq1", alias="RAZORPAY_KEY_SECRET")
-    RAZORPAY_CURRENCY: str = Field(default="INR", alias="RAZORPAY_CURRENCY")
+    # Cashfree Payment Gateway Configuration
+    CASHFREE_APP_ID: str = Field(default="TEST10343468abef10df48197171d9d586434301", alias="CASHFREE_APP_ID")
+    CASHFREE_SECRET_KEY: str = Field(default="cfsk_ma_test_5493b80b2a8d6722fc161f38e30b6563_635c1ba3", alias="CASHFREE_SECRET_KEY")
+    CASHFREE_ENV: str = Field(default="SANDBOX", alias="CASHFREE_ENV")  # SANDBOX or PRODUCTION
+    CASHFREE_API_VERSION: str = Field(default="2023-08-01", alias="CASHFREE_API_VERSION")
+    CASHFREE_CURRENCY: str = Field(default="INR", alias="CASHFREE_CURRENCY")
 
     @model_validator(mode="after")
     def resolve_aliases_and_fallbacks(self) -> "Settings":
@@ -155,6 +148,11 @@ class Settings(BaseSettings):
         # OTP_HASH_SECRET falls back to SECRET_KEY
         if not self.OTP_HASH_SECRET:
             self.OTP_HASH_SECRET = self.SECRET_KEY
+
+        # Normalize CASHFREE_ENV
+        if self.CASHFREE_ENV:
+            self.CASHFREE_ENV = self.CASHFREE_ENV.strip().upper()
+
         # If DB_HOST / DB_USER / DB_NAME are specified, build MySQL connection URL
         if self.DB_HOST and self.DB_USER and self.DB_NAME:
             from sqlalchemy.engine import URL
@@ -174,12 +172,7 @@ class Settings(BaseSettings):
         return self
 
     model_config = {
-        "env_file": (
-            str(_ROOT_DIR / ".env"),
-            str(_BACKEND_DIR / ".env"),
-            ".env",
-            "backend/.env",
-        ),
+        "env_file": (".env", "backend/.env"),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
