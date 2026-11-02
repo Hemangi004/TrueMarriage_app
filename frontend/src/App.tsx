@@ -35,6 +35,7 @@ import { updatePageSEO, ROUTE_SEO } from './utils/seo';
 import { ErrorPage } from './components/common/ErrorPage';
 import { AboutMePage } from './components/pages/AboutMePage';
 import { TeamPage } from './components/pages/TeamPage';
+import { PaymentStatusPage } from './components/pages/PaymentStatusPage';
 import { SeoLandingPage } from './components/seo/SeoLandingPage';
 import { SeoDirectoryIndex } from './components/seo/SeoDirectoryIndex';
 import { ALL_SEO_SLUGS } from './data/seoLandingPages';
@@ -485,6 +486,10 @@ const MainContent: React.FC = () => {
         <Route path="/403" element={<ErrorPage code={403} />} />
         <Route path="/401" element={<ErrorPage code={401} />} />
         <Route path="/500" element={<ErrorPage code={500} />} />
+
+        {/* Payment Status Return Route for Cashfree */}
+        <Route path="/payment-status" element={<PaymentStatusPage />} />
+        <Route path="/payment-status/" element={<PaymentStatusPage />} />
 
         {/* Own Profile Route */}
         <Route path="/profile" element={<OwnProfileRedirect />} />
